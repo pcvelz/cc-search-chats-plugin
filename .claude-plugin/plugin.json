@@ -1,0 +1,13 @@
+{
+  "name": "search-chats",
+  "description": "Search and extract Claude Code chat history with keyword matching, session extraction, and local LLM analysis",
+  "version": "1.0.7",
+  "author": {
+    "name": "pcvelz",
+    "email": "pcvelz@users.noreply.github.com"
+  },
+  "homepage": "https://github.com/pcvelz/cc-search-chats-plugin",
+  "repository": "https://github.com/pcvelz/cc-search-chats-plugin",
+  "license": "MIT",
+  "keywords": ["search", "chat-history", "sessions", "extraction", "llm-analysis", "claude-code"]
+}
