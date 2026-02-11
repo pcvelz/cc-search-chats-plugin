@@ -41,9 +41,10 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --help|-h)
-            echo "Usage: search-chat.sh <query> [OPTIONS]"
+            echo "Usage: search-chat.sh <query|session-uuid> [OPTIONS]"
             echo ""
             echo "Search through Claude Code chat history and extract conversations."
+            echo "If a UUID is passed as query, it auto-extracts that session."
             echo ""
             echo "Search Options:"
             echo "  --limit N          Maximum sessions to return (default: 10)"
@@ -72,6 +73,13 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# Auto-detect: if query looks like a UUID, treat it as a session ID extraction
+UUID_REGEX='^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$'
+if [[ -n "$QUERY" ]] && [[ -z "$EXTRACT_SESSION" ]] && [[ "$QUERY" =~ $UUID_REGEX ]]; then
+    EXTRACT_SESSION="$QUERY"
+    QUERY=""
+fi
 
 # Validate: need either query or extract session
 if [[ -z "$QUERY" ]] && [[ -z "$EXTRACT_SESSION" ]]; then

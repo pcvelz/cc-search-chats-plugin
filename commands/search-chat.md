@@ -56,7 +56,8 @@ bash ${CLAUDE_PLUGIN_ROOT}/commands/search-chat.sh $ARGUMENTS
 - `/search-chat "deploy" --limit 5` - Search with limited results
 
 ### Direct Extraction
-- `/search-chat --extract bbfba5e4-c5e7-4464-af03-67d8f62ada53` - Extract specific session
+- `/search-chat bbfba5e4-c5e7-4464-af03-67d8f62ada53` - Auto-detects UUID, extracts full session
+- `/search-chat --extract bbfba5e4-c5e7-4464-af03-67d8f62ada53` - Explicit extract (same result)
 
 ### Search + Extract (Recommended for Investigation)
 - `/search-chat "staging deploy" --extract-matches` - Search and extract top 5 matches
