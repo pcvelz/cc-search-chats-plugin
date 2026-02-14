@@ -55,8 +55,10 @@ bash ${CLAUDE_PLUGIN_ROOT}/commands/search-chat.sh $ARGUMENTS
 - `/search-chat "API integration"` - Find sessions mentioning API integration
 - `/search-chat "deploy" --limit 5` - Search with limited results
 
-### Direct Extraction
-- `/search-chat bbfba5e4-c5e7-4464-af03-67d8f62ada53` - Auto-detects UUID, extracts full session
+### Direct Extraction (Full or Partial UUID)
+- `/search-chat bbfba5e4-c5e7-4464-af03-67d8f62ada53` - Auto-detects full UUID, extracts session
+- `/search-chat bbfba5e4` - Partial UUID (first 8 chars) — resolves to full ID automatically
+- `/search-chat bbfba5e4-c5e7-4464-af03-67d8f6` - Truncated UUID — also resolved via prefix match
 - `/search-chat --extract bbfba5e4-c5e7-4464-af03-67d8f62ada53` - Explicit extract (same result)
 
 ### Search + Extract (Recommended for Investigation)
