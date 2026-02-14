@@ -39,6 +39,8 @@ A Claude Code plugin for searching and extracting chat history from previous ses
 
 ```bash
 /search-chat <session-uuid>              # auto-detects UUID, extracts full session
+/search-chat bbfba5e4                    # partial UUID (first 8 chars) — resolves automatically
+/search-chat bbfba5e4-c5e7-4464-af03    # truncated UUID — also resolved via prefix match
 /search-chat --extract <session-id>      # explicit extract (same result)
 /search-chat "staging" --extract-matches
 ```

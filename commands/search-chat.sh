@@ -74,11 +74,15 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Auto-detect: if query looks like a UUID, treat it as a session ID extraction
-UUID_REGEX='^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$'
-if [[ -n "$QUERY" ]] && [[ -z "$EXTRACT_SESSION" ]] && [[ "$QUERY" =~ $UUID_REGEX ]]; then
-    EXTRACT_SESSION="$QUERY"
-    QUERY=""
+# Auto-detect: if query looks like a UUID (full or partial), treat it as a session ID extraction
+UUID_FULL_REGEX='^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$'
+UUID_PARTIAL_REGEX='^[a-f0-9]{8}-[a-f0-9]{1,4}'
+UUID_SHORT_REGEX='^[a-f0-9]{8}$'
+if [[ -n "$QUERY" ]] && [[ -z "$EXTRACT_SESSION" ]]; then
+    if [[ "$QUERY" =~ $UUID_FULL_REGEX ]] || [[ "$QUERY" =~ $UUID_PARTIAL_REGEX ]] || [[ "$QUERY" =~ $UUID_SHORT_REGEX ]]; then
+        EXTRACT_SESSION="$QUERY"
+        QUERY=""
+    fi
 fi
 
 # Validate: need either query or extract session
@@ -104,21 +108,61 @@ CLAUDE_PROJECT_DIR=$(echo "$TARGET_PATH" | sed 's|^/|-|' | sed 's|/|-|g')
 CLAUDE_PROJECTS_BASE="$HOME/.claude/projects"
 PROJECT_HISTORY_DIR="$CLAUDE_PROJECTS_BASE/$CLAUDE_PROJECT_DIR"
 
-# Function to find session file (searches all projects if not found locally)
+# Function to find session file (supports partial UUIDs, searches all projects)
 find_session_file() {
     local session_id="$1"
-    local session_file="$PROJECT_HISTORY_DIR/$session_id.jsonl"
 
+    # 1. Try exact match in current project
+    local session_file="$PROJECT_HISTORY_DIR/$session_id.jsonl"
     if [[ -f "$session_file" ]]; then
         echo "$session_file"
         return 0
     fi
 
-    # Search all projects
+    # 2. Try exact match across all projects
     local found=$(find "$CLAUDE_PROJECTS_BASE" -name "$session_id.jsonl" -type f 2>/dev/null | head -1)
     if [[ -n "$found" ]]; then
         echo "$found"
         return 0
+    fi
+
+    # 3. Try partial/prefix match in current project
+    local matches=()
+    if [[ -d "$PROJECT_HISTORY_DIR" ]]; then
+        while IFS= read -r f; do
+            matches+=("$f")
+        done < <(find "$PROJECT_HISTORY_DIR" -maxdepth 1 -name "${session_id}*.jsonl" -type f ! -name "agent-*" 2>/dev/null)
+    fi
+
+    if [[ ${#matches[@]} -eq 1 ]]; then
+        echo "${matches[0]}"
+        return 0
+    elif [[ ${#matches[@]} -gt 1 ]]; then
+        echo "AMBIGUOUS:${#matches[@]}" >&2
+        for m in "${matches[@]}"; do
+            echo "  $(basename "$m" .jsonl)" >&2
+        done
+        # Return the first match but signal ambiguity
+        echo "${matches[0]}"
+        return 2
+    fi
+
+    # 4. Try partial/prefix match across all projects
+    matches=()
+    while IFS= read -r f; do
+        matches+=("$f")
+    done < <(find "$CLAUDE_PROJECTS_BASE" -name "${session_id}*.jsonl" -type f ! -name "agent-*" 2>/dev/null)
+
+    if [[ ${#matches[@]} -eq 1 ]]; then
+        echo "${matches[0]}"
+        return 0
+    elif [[ ${#matches[@]} -gt 1 ]]; then
+        echo "AMBIGUOUS:${#matches[@]}" >&2
+        for m in "${matches[@]}"; do
+            echo "  $(basename "$m" .jsonl)" >&2
+        done
+        echo "${matches[0]}"
+        return 2
     fi
 
     return 1
@@ -252,12 +296,35 @@ if [[ -n "$EXTRACT_SESSION" ]]; then
     echo "Extracting session: $EXTRACT_SESSION"
     echo ""
 
-    session_file=$(find_session_file "$EXTRACT_SESSION")
+    # Capture stderr for ambiguity messages
+    ambiguity_msg=$(mktemp)
+    session_file=$(find_session_file "$EXTRACT_SESSION" 2>"$ambiguity_msg")
+    find_status=$?
+
     if [[ -z "$session_file" ]]; then
         echo "Error: Session not found: $EXTRACT_SESSION"
         echo "Searched in: $PROJECT_HISTORY_DIR"
-        echo "Also searched: $CLAUDE_PROJECTS_BASE"
+        echo "Also searched all projects in: $CLAUDE_PROJECTS_BASE"
+        rm -f "$ambiguity_msg"
         exit 1
+    fi
+
+    if [[ $find_status -eq 2 ]]; then
+        echo "Warning: Multiple sessions match partial ID '$EXTRACT_SESSION':"
+        cat "$ambiguity_msg"
+        echo ""
+        resolved_id=$(basename "$session_file" .jsonl)
+        echo "Using first match: $resolved_id"
+        echo "Tip: Provide more characters of the UUID to get an exact match."
+        echo ""
+    fi
+    rm -f "$ambiguity_msg"
+
+    # Show resolved ID if it differs from input (partial match)
+    resolved_id=$(basename "$session_file" .jsonl)
+    if [[ "$resolved_id" != "$EXTRACT_SESSION" ]]; then
+        echo "Resolved partial ID to: $resolved_id"
+        echo ""
     fi
 
     extract_session "$session_file" "$MAX_LINES" "$QUERY"
