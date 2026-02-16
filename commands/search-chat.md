@@ -61,6 +61,10 @@ bash ${CLAUDE_PLUGIN_ROOT}/commands/search-chat.sh $ARGUMENTS
 - `/search-chat bbfba5e4-c5e7-4464-af03-67d8f6` - Truncated UUID — also resolved via prefix match
 - `/search-chat --extract bbfba5e4-c5e7-4464-af03-67d8f62ada53` - Explicit extract (same result)
 
+### UUID + Filter (Extract and filter content)
+- `/search-chat bbfba5e4 chrome tag` - Extract session, show only lines matching "chrome tag"
+- `/search-chat bbfba5e4-c5e7, latest errors` - Partial UUID with comma-separated filter text
+
 ### Search + Extract (Recommended for Investigation)
 - `/search-chat "staging deploy" --extract-matches` - Search and extract top 5 matches
 - `/search-chat "database migration" --extract-matches --extract-limit 3` - Extract top 3 matches

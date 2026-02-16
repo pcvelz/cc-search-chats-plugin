@@ -74,14 +74,15 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Auto-detect: if query looks like a UUID (full or partial), treat it as a session ID extraction
-UUID_FULL_REGEX='^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$'
-UUID_PARTIAL_REGEX='^[a-f0-9]{8}-[a-f0-9]{1,4}'
-UUID_SHORT_REGEX='^[a-f0-9]{8}$'
+# Auto-detect: if query starts with a UUID (full or partial), split it from remaining text
+# Remaining text becomes a filter query within the extracted session
+UUID_FULL_REGEX='^([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})([ ,]+(.*))?$'
+UUID_PARTIAL_REGEX='^([a-f0-9]{8}-[a-f0-9]{1,4}[a-f0-9-]*)([ ,]+(.*))?$'
+UUID_SHORT_REGEX='^([a-f0-9]{8})([ ,]+(.*))?$'
 if [[ -n "$QUERY" ]] && [[ -z "$EXTRACT_SESSION" ]]; then
     if [[ "$QUERY" =~ $UUID_FULL_REGEX ]] || [[ "$QUERY" =~ $UUID_PARTIAL_REGEX ]] || [[ "$QUERY" =~ $UUID_SHORT_REGEX ]]; then
-        EXTRACT_SESSION="$QUERY"
-        QUERY=""
+        EXTRACT_SESSION="${BASH_REMATCH[1]}"
+        QUERY="${BASH_REMATCH[3]}"
     fi
 fi
 
