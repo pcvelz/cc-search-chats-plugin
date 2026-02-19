@@ -21,6 +21,8 @@ Search through previous Claude Code chat sessions and extract conversation conte
 2. Present its output to the user
 3. Stop
 
+**For callers (main agent or other subagents):** After this skill returns results, do NOT try to read referenced chat files or tool-results directly with `cat`, `tail`, or `grep`. Use `--read-result` or `--list-results` flags through the script instead. Direct access to `~/.claude/projects/` is blocked by hooks.
+
 ## Exact Command to Run
 
 ```bash
@@ -49,6 +51,10 @@ bash ${CLAUDE_PLUGIN_ROOT}/commands/search-chat.sh $ARGUMENTS
 - `--extract-limit N` - Number of matches to extract (default: 5)
 - `--max-lines N` - Max lines per session extraction (default: 500)
 
+### Tool-Result Access
+- `--list-results ID` - List tool-results and subagents for a session
+- `--read-result ID FILENAME` - Read a specific tool-result file from a session
+
 ## Examples
 
 ### Search Only
@@ -71,6 +77,10 @@ bash ${CLAUDE_PLUGIN_ROOT}/commands/search-chat.sh $ARGUMENTS
 
 ### Cross-Project Search
 - `/search-chat "redis config" --project /path/to/other-project`
+
+### Tool-Result Access (Follow-Up)
+- `/search-chat --list-results 1583768e` - List tool-results for a session (partial UUID)
+- `/search-chat --read-result 1583768e b0c4da3.txt` - Read a specific tool-result file
 
 ## Output Format
 
