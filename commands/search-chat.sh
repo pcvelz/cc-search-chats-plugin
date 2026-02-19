@@ -40,6 +40,15 @@ while [[ $# -gt 0 ]]; do
             PROJECT_PATH="$2"
             shift 2
             ;;
+        --read-result)
+            READ_RESULT_SESSION="$2"
+            READ_RESULT_FILE="$3"
+            shift 3
+            ;;
+        --list-results)
+            LIST_RESULTS_SESSION="$2"
+            shift 2
+            ;;
         --help|-h)
             echo "Usage: search-chat.sh <query|session-uuid> [OPTIONS]"
             echo ""
@@ -86,8 +95,8 @@ if [[ -n "$QUERY" ]] && [[ -z "$EXTRACT_SESSION" ]]; then
     fi
 fi
 
-# Validate: need either query or extract session
-if [[ -z "$QUERY" ]] && [[ -z "$EXTRACT_SESSION" ]]; then
+# Validate: need either query, extract session, or one of the result modes
+if [[ -z "$QUERY" ]] && [[ -z "$EXTRACT_SESSION" ]] && [[ -z "${READ_RESULT_SESSION:-}" ]] && [[ -z "${LIST_RESULTS_SESSION:-}" ]]; then
     echo "Error: No search query or session ID provided"
     echo "Usage: search-chat.sh <query> [--extract ID] [--extract-matches]"
     exit 1
@@ -108,6 +117,82 @@ fi
 CLAUDE_PROJECT_DIR=$(echo "$TARGET_PATH" | sed 's|^/|-|' | sed 's|/|-|g')
 CLAUDE_PROJECTS_BASE="$HOME/.claude/projects"
 PROJECT_HISTORY_DIR="$CLAUDE_PROJECTS_BASE/$CLAUDE_PROJECT_DIR"
+
+# =====================================================================
+# Mode: Read specific tool result from a session
+# =====================================================================
+if [[ -n "${READ_RESULT_SESSION:-}" ]]; then
+  SESSION_DIR=""
+  # Try current project first
+  if [[ -d "$PROJECT_HISTORY_DIR/$READ_RESULT_SESSION" ]]; then
+    SESSION_DIR="$PROJECT_HISTORY_DIR/$READ_RESULT_SESSION"
+  else
+    # Try partial match in current project
+    MATCH=$(find "$PROJECT_HISTORY_DIR" -maxdepth 1 -type d -name "${READ_RESULT_SESSION}*" 2>/dev/null | head -1)
+    if [[ -n "$MATCH" ]]; then
+      SESSION_DIR="$MATCH"
+    else
+      # Search all projects
+      SESSION_DIR=$(find "$CLAUDE_PROJECTS_BASE" -maxdepth 2 -type d -name "${READ_RESULT_SESSION}*" 2>/dev/null | head -1)
+    fi
+  fi
+
+  if [[ -z "$SESSION_DIR" ]]; then
+    echo "ERROR: Session $READ_RESULT_SESSION not found" >&2
+    exit 1
+  fi
+
+  RESULT_FILE="$SESSION_DIR/tool-results/$READ_RESULT_FILE"
+  if [[ -f "$RESULT_FILE" ]]; then
+    cat "$RESULT_FILE"
+  else
+    echo "ERROR: Tool result file not found: $READ_RESULT_FILE" >&2
+    echo "" >&2
+    echo "Available files in $SESSION_DIR/tool-results/:" >&2
+    ls "$SESSION_DIR/tool-results/" 2>/dev/null | head -20 >&2
+    exit 1
+  fi
+  exit 0
+fi
+
+# =====================================================================
+# Mode: List tool results and subagents for a session
+# =====================================================================
+if [[ -n "${LIST_RESULTS_SESSION:-}" ]]; then
+  SESSION_DIR=""
+  if [[ -d "$PROJECT_HISTORY_DIR/$LIST_RESULTS_SESSION" ]]; then
+    SESSION_DIR="$PROJECT_HISTORY_DIR/$LIST_RESULTS_SESSION"
+  else
+    MATCH=$(find "$PROJECT_HISTORY_DIR" -maxdepth 1 -type d -name "${LIST_RESULTS_SESSION}*" 2>/dev/null | head -1)
+    if [[ -n "$MATCH" ]]; then
+      SESSION_DIR="$MATCH"
+    else
+      SESSION_DIR=$(find "$CLAUDE_PROJECTS_BASE" -maxdepth 2 -type d -name "${LIST_RESULTS_SESSION}*" 2>/dev/null | head -1)
+    fi
+  fi
+
+  if [[ -z "$SESSION_DIR" ]]; then
+    echo "ERROR: Session $LIST_RESULTS_SESSION not found" >&2
+    exit 1
+  fi
+
+  echo "=== Session: $(basename "$SESSION_DIR") ==="
+  echo ""
+  echo "--- Tool Results ---"
+  if [[ -d "$SESSION_DIR/tool-results" ]]; then
+    ls -lh "$SESSION_DIR/tool-results/" 2>/dev/null | tail -n +2
+  else
+    echo "(no tool-results directory)"
+  fi
+  echo ""
+  echo "--- Subagents ---"
+  if [[ -d "$SESSION_DIR/subagents" ]]; then
+    ls "$SESSION_DIR/subagents/" 2>/dev/null
+  else
+    echo "(no subagents directory)"
+  fi
+  exit 0
+fi
 
 # Function to find session file (supports partial UUIDs, searches all projects)
 find_session_file() {
