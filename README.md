@@ -61,6 +61,38 @@ A Claude Code plugin for searching and extracting chat history from previous ses
 | `--context N` | Messages of context around filter matches | 0 |
 | `--tail N` | Show only last N lines of extraction | - |
 
+## Release Notes
+
+### [v1.2.1](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v1.2.1) - Context, tail flags and tool-result access
+
+- **`--context N` flag** — show N messages of context around filter matches when using UUID + filter. Matches are marked with `>>>` and context blocks separated by `---`
+- **`--tail N` flag** — show only the last N lines of a session extraction (complements `--max-lines` which truncates from the front)
+- **`--read-result` / `--list-results`** — access tool results stored in session directories for inspection
+- **Unknown flag detection** — unknown options like `--bogus` now produce a warning and are ignored, instead of being silently added to the search query
+- Removed stale README references to `--analyze` and `--delete` features that were never implemented
+
+### v1.2.0 - Tool-result access modes
+
+- **`--read-result`** — read a specific tool result file from a session directory
+- **`--list-results`** — list all tool results stored in a session directory
+
+### [v1.1.1](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v1.1.1) - UUID + filter syntax
+
+- UUID + filter syntax: `/search-chat bbfba5e4 chrome errors` extracts session and shows only matching lines
+- UUID and filter text are automatically split (comma or space separated)
+
+### [v1.1.0](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v1.1.0) - Partial UUID matching
+
+- Partial UUID matching for session extraction (e.g. `cea8f0ed` or `cea8f0ed-533e-493f-a832`)
+- 4-level fallback resolution: exact local → exact global → prefix local → prefix global
+- Ambiguity detection when partial IDs match multiple sessions
+
+### [v1.0.8](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v1.0.8) - Auto-detect UUID
+
+- Auto-detect UUID: passing a session UUID as argument now auto-extracts that session (no `--extract` flag needed)
+
+---
+
 ## Tip: Add to your CLAUDE.md
 
 Adding a line to your project's `CLAUDE.md` makes Claude automatically reach for `/search-chat` when you casually reference something from a previous session. Without it, Claude won't know the plugin exists.
@@ -72,25 +104,6 @@ When I reference a previous conversation, earlier discussion, or ask to continue
 ```
 
 That's it. Now you can say things like *"that staging bug from the other day"* or *"the auth issue we brainstormed about"* and Claude will search your chat history instead of asking you to explain from scratch.
-
-### Leveraging the Max 20x plan
-
-If you're on a Claude Max plan with 20x usage, you can add a few extra lines to your `CLAUDE.md` to unlock a more powerful workflow. Instead of spending your own time maintaining context documents, Claude will send out an opus subagent per chat match to search through old session logs and summarize the gist of each one. It's token-heavy — but on an unlimited plan you can afford to be lavish with Claude's budget instead of your own time. You can just tell Claude *"that issue related to album recovery, I want to brainstorm some more about it"* and it'll dig through your history, summarize what happened, and pick up where you left off.
-
-Add these lines to the Chat History section in your `CLAUDE.md`:
-
-```markdown
-When I want to brainstorm or continue a previous discussion, go beyond basic search:
-
-1. Run `/search-chat "<topic>" --extract-matches --extract-limit 5` to find and extract relevant sessions
-2. For each extracted session, spawn an opus subagent (Task tool, model: opus) to summarize:
-   - What was discussed and decided
-   - What was left unresolved
-   - Key code changes or commands run
-3. Synthesize all summaries into a brief overview before continuing the conversation
-
-Previous chats ARE the documentation — no need to maintain separate notes.
-```
 
 ## Requirements
 
