@@ -50,6 +50,8 @@ bash ${CLAUDE_PLUGIN_ROOT}/commands/search-chat.sh $ARGUMENTS
 - `--extract-matches` - Auto-extract from top search matches
 - `--extract-limit N` - Number of matches to extract (default: 5)
 - `--max-lines N` - Max lines per session extraction (default: 500)
+- `--context N` - Show N messages of context around filter matches (default: 0)
+- `--tail N` - Show only last N lines of extraction
 
 ### Tool-Result Access
 - `--list-results ID` - List tool-results and subagents for a session
@@ -77,6 +79,14 @@ bash ${CLAUDE_PLUGIN_ROOT}/commands/search-chat.sh $ARGUMENTS
 
 ### Cross-Project Search
 - `/search-chat "redis config" --project /path/to/other-project`
+
+### Context Around Matches
+- `/search-chat bbfba5e4 "error" --context 3` - Show 3 messages around each match
+- `/search-chat --extract <id> --max-lines 500 --context 5` - Extract with context window
+
+### Last N Lines
+- `/search-chat bbfba5e4 --tail 50` - Last 50 lines of session
+- `/search-chat --extract <id> --tail 100` - Last 100 lines of extraction
 
 ### Tool-Result Access (Follow-Up)
 - `/search-chat --list-results 1583768e` - List tool-results for a session (partial UUID)

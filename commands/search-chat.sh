@@ -10,6 +10,8 @@ EXTRACT_SESSION=""
 EXTRACT_MATCHES=false
 EXTRACT_LIMIT=5
 MAX_LINES=500
+CONTEXT_LINES=0
+TAIL_LINES=0
 PROJECT_PATH=""
 QUERY=""
 
@@ -45,6 +47,14 @@ while [[ $# -gt 0 ]]; do
             READ_RESULT_FILE="$3"
             shift 3
             ;;
+        --context)
+            CONTEXT_LINES="${2:-3}"
+            shift 2
+            ;;
+        --tail)
+            TAIL_LINES="$2"
+            shift 2
+            ;;
         --list-results)
             LIST_RESULTS_SESSION="$2"
             shift 2
@@ -64,6 +74,8 @@ while [[ $# -gt 0 ]]; do
             echo "  --extract-matches  Auto-extract from top search matches"
             echo "  --extract-limit N  Number of matches to extract (default: 5)"
             echo "  --max-lines N      Max lines per session extraction (default: 500)"
+            echo "  --context N        Messages of context around filter matches (default: 0)"
+            echo "  --tail N           Show only last N lines of extraction"
             echo ""
             echo "Examples:"
             echo "  search-chat.sh 'staging deploy'                     # Search only"
@@ -73,12 +85,17 @@ while [[ $# -gt 0 ]]; do
             exit 0
             ;;
         *)
-            if [[ -z "$QUERY" ]]; then
-                QUERY="$1"
+            if [[ "$1" =~ ^-- ]]; then
+                echo "Warning: Unknown option '$1' (ignored)" >&2
+                shift
             else
-                QUERY="$QUERY $1"
+                if [[ -z "$QUERY" ]]; then
+                    QUERY="$1"
+                else
+                    QUERY="$QUERY $1"
+                fi
+                shift
             fi
-            shift
             ;;
     esac
 done
@@ -263,6 +280,8 @@ extract_session() {
     export SEARCH_SESSION_FILE="$session_file"
     export SEARCH_MAX_LINES="$max_lines"
     export SEARCH_QUERY="$query"
+    export SEARCH_CONTEXT_LINES="$CONTEXT_LINES"
+    export SEARCH_TAIL_LINES="$TAIL_LINES"
 
     python3 << 'PYTHON_SCRIPT'
 import json
@@ -273,6 +292,8 @@ from datetime import datetime
 session_file = os.environ.get('SEARCH_SESSION_FILE', '')
 max_lines = int(os.environ.get('SEARCH_MAX_LINES', '500'))
 query = os.environ.get('SEARCH_QUERY', '').lower() or None
+context_lines = int(os.environ.get('SEARCH_CONTEXT_LINES', '0'))
+tail_lines = int(os.environ.get('SEARCH_TAIL_LINES', '0'))
 
 def extract_text(content):
     """Extract readable text from message content."""
@@ -301,6 +322,19 @@ def extract_text(content):
                         texts.append(f"[TOOL:{tool_name}]")
         return '\n'.join(texts)
     return str(content)[:500]
+
+def format_message(role, content, max_line_len=200):
+    """Format a message into output lines."""
+    output = []
+    lines = content.split('\n')
+    for line in lines:
+        if line.strip():
+            prefix = f"[{role}]" if role in ('USER', 'ASSISTANT') else ""
+            if prefix:
+                output.append(f"{prefix} {line[:max_line_len]}")
+            else:
+                output.append(f"  {line[:max_line_len]}")
+    return output
 
 # Parse session
 messages = []
@@ -345,30 +379,73 @@ if session_info.get('timestamp'):
 print(f"PROJECT: {session_info.get('cwd', 'unknown')}")
 if query:
     print(f"FILTER: {query}")
+if context_lines > 0:
+    print(f"CONTEXT: {context_lines} messages")
+if tail_lines > 0:
+    print(f"TAIL: {tail_lines} lines")
 print("=" * 80)
 print()
 
-# Output messages (limited)
-line_count = 0
-for role, content in messages:
-    if max_lines > 0 and line_count >= max_lines:
-        print(f"\n... (truncated at {max_lines} lines)")
-        break
+# Build output lines based on mode
+output_lines = []
 
-    if query and query not in content.lower():
-        continue
+if query and context_lines > 0:
+    # Context mode: find matching messages, include N messages before/after
+    match_indices = set()
+    for i, (role, content) in enumerate(messages):
+        if query in content.lower():
+            for j in range(max(0, i - context_lines), min(len(messages), i + context_lines + 1)):
+                match_indices.add(j)
 
-    lines = content.split('\n')
-    for line in lines:
-        if max_lines > 0 and line_count >= max_lines:
-            break
-        if line.strip():
-            prefix = f"[{role}]" if role in ('USER', 'ASSISTANT') else ""
-            if prefix:
-                print(f"{prefix} {line[:200]}")
+    if not match_indices:
+        output_lines.append(f"No messages matching '{query}'")
+    else:
+        sorted_indices = sorted(match_indices)
+        # Group consecutive indices into blocks
+        blocks = []
+        current_block = [sorted_indices[0]]
+        for idx in sorted_indices[1:]:
+            if idx == current_block[-1] + 1:
+                current_block.append(idx)
             else:
-                print(f"  {line[:200]}")
-            line_count += 1
+                blocks.append(current_block)
+                current_block = [idx]
+        blocks.append(current_block)
+
+        for block_num, block in enumerate(blocks):
+            if block_num > 0:
+                output_lines.append("---")
+            for idx in block:
+                role, content = messages[idx]
+                is_match = query in content.lower()
+                marker = ">>>" if is_match else "   "
+                for line in format_message(role, content):
+                    output_lines.append(f"{marker} {line}")
+
+elif query:
+    # Filter mode (no context): only show matching messages
+    for role, content in messages:
+        if query not in content.lower():
+            continue
+        output_lines.extend(format_message(role, content))
+else:
+    # No filter: show all messages
+    for role, content in messages:
+        output_lines.extend(format_message(role, content))
+
+# Apply --tail: keep only last N lines
+if tail_lines > 0 and len(output_lines) > tail_lines:
+    skipped = len(output_lines) - tail_lines
+    output_lines = [f"... (skipped {skipped} lines, showing last {tail_lines})"] + output_lines[-tail_lines:]
+
+# Apply --max-lines: truncate from front
+if max_lines > 0 and len(output_lines) > max_lines:
+    output_lines = output_lines[:max_lines]
+    output_lines.append(f"\n... (truncated at {max_lines} lines)")
+
+# Print output
+for line in output_lines:
+    print(line)
 
 print()
 print("=" * 80)
