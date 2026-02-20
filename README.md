@@ -32,7 +32,7 @@ A Claude Code plugin for searching and extracting chat history from previous ses
 
 ```bash
 /search-chat "keyword"
-/search-chat "API integration" --context
+/search-chat "API integration" --limit 5
 ```
 
 ### Extract Session
@@ -42,6 +42,8 @@ A Claude Code plugin for searching and extracting chat history from previous ses
 /search-chat bbfba5e4                    # partial UUID (first 8 chars) — resolves automatically
 /search-chat bbfba5e4-c5e7-4464-af03    # truncated UUID — also resolved via prefix match
 /search-chat bbfba5e4 chrome errors      # UUID + filter — extract session, show matching lines only
+/search-chat bbfba5e4 error --context 3  # UUID + filter with 3 messages of context
+/search-chat bbfba5e4 --tail 50          # last 50 lines of session
 /search-chat --extract <session-id>      # explicit extract (same result)
 /search-chat "staging" --extract-matches
 ```
@@ -51,23 +53,13 @@ A Claude Code plugin for searching and extracting chat history from previous ses
 | Option | Description | Default |
 |--------|-------------|---------|
 | `--limit N` | Maximum sessions to return | 10 |
-| `--context` | Show matching text snippets | false |
 | `--project PATH` | Search in specific project | current |
 | `--extract ID` | Extract specific session | - |
 | `--extract-matches` | Auto-extract top matches | false |
 | `--extract-limit N` | Number to extract | 5 |
 | `--max-lines N` | Max lines per extraction | 500 |
-| `--analyze "prompt"` | Analyze via llama.cpp | - |
-| `--delete ID` | Delete session (destructive) | - |
-
-### Analysis Templates
-
-When using `--analyze`, these templates are available:
-- `summarize` - Summarize key points
-- `commands` - Extract all commands mentioned
-- `files` - List all file paths discussed
-- `errors` - Identify errors and root causes
-- `ssh` - Extract SSH connection details
+| `--context N` | Messages of context around filter matches | 0 |
+| `--tail N` | Show only last N lines of extraction | - |
 
 ## Tip: Add to your CLAUDE.md
 
