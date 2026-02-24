@@ -48,12 +48,37 @@ A Claude Code plugin for searching and extracting chat history from previous ses
 /search-chat "staging" --extract-matches
 ```
 
+### Smart Interpretation
+
+The plugin automatically interprets your input:
+
+| Input | Interpretation |
+|-------|---------------|
+| `"CORS policy"` | Search for sessions mentioning CORS issues |
+| `e7f2b08c` | Try as session UUID → if no match, search as text |
+| `e7f2b08c "Allow-Origin"` | Extract session, grep for lines about the missing header |
+| `e7f2b08c "what was the fix for the preflight response"` | Instruction detected (>4 words) — extracts full session for LLM interpretation |
+| `e7f2b08c-4a91-43d6-8c5e-...` | Full UUID — extracts the session directly |
+| `--extract e7f2b08c` | Explicit extract (errors if session not found) |
+| `"CORS" --all-projects` | Find CORS issues across all your projects |
+
+**How filtering works:** Short text (1-4 words) is used as a grep keyword. Longer text (5+ words) is treated as an instruction — the full session is extracted so the LLM can interpret it semantically. Auto-detected UUIDs that don't match any session fall back to text search. Explicit `--extract` still errors when not found.
+
+### Cross-Project Search
+
+```bash
+/search-chat "CORS" --all-projects               # find CORS issues across all projects
+/search-chat "502 gateway" --all-projects         # find gateway errors everywhere
+/search-chat "CORS" --project /path/to/project    # search specific other project
+```
+
 ### Options
 
 | Option | Description | Default |
 |--------|-------------|---------|
 | `--limit N` | Maximum sessions to return | 10 |
 | `--project PATH` | Search in specific project | current |
+| `--all-projects` | Search across all projects | current only |
 | `--extract ID` | Extract specific session | - |
 | `--extract-matches` | Auto-extract top matches | false |
 | `--extract-limit N` | Number to extract | 5 |
@@ -62,6 +87,13 @@ A Claude Code plugin for searching and extracting chat history from previous ses
 | `--tail N` | Show only last N lines of extraction | - |
 
 ## Release Notes
+
+### [v1.3.0](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v1.3.0) - Smart input interpretation & cross-project search
+
+- **Smart interpretation** — input is automatically classified: UUID-like text that doesn't match a session falls back to text search instead of erroring
+- **`--all-projects` flag** — search across all project histories, not just the current project. Results include the project directory name
+- **Instruction-style filters** — filter text longer than 4 words is recognized as a natural language instruction; the full session is extracted for LLM interpretation instead of literal grep
+- **Test suite** — 24 automated tests with mock JSONL data covering all input patterns, fallback behavior, and regressions
 
 ### [v1.2.1](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v1.2.1) - Context, tail flags and tool-result access
 

@@ -14,6 +14,7 @@ CONTEXT_LINES=0
 TAIL_LINES=0
 PROJECT_PATH=""
 QUERY=""
+ALL_PROJECTS=false
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -59,6 +60,10 @@ while [[ $# -gt 0 ]]; do
             LIST_RESULTS_SESSION="$2"
             shift 2
             ;;
+        --all-projects)
+            ALL_PROJECTS=true
+            shift
+            ;;
         --help|-h)
             echo "Usage: search-chat.sh <query|session-uuid> [OPTIONS]"
             echo ""
@@ -68,6 +73,7 @@ while [[ $# -gt 0 ]]; do
             echo "Search Options:"
             echo "  --limit N          Maximum sessions to return (default: 10)"
             echo "  --project PATH     Search in specific project (default: current directory)"
+            echo "  --all-projects     Search across all projects (default: current project only)"
             echo ""
             echo "Extraction Options:"
             echo "  --extract ID       Extract conversation from specific session ID"
@@ -102,6 +108,8 @@ done
 
 # Auto-detect: if query starts with a UUID (full or partial), split it from remaining text
 # Remaining text becomes a filter query within the extracted session
+ORIGINAL_QUERY="$QUERY"
+AUTO_DETECTED_UUID=false
 UUID_FULL_REGEX='^([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})([ ,]+(.*))?$'
 UUID_PARTIAL_REGEX='^([a-f0-9]{8}-[a-f0-9]{1,4}[a-f0-9-]*)([ ,]+(.*))?$'
 UUID_SHORT_REGEX='^([a-f0-9]{8})([ ,]+(.*))?$'
@@ -109,6 +117,7 @@ if [[ -n "$QUERY" ]] && [[ -z "$EXTRACT_SESSION" ]]; then
     if [[ "$QUERY" =~ $UUID_FULL_REGEX ]] || [[ "$QUERY" =~ $UUID_PARTIAL_REGEX ]] || [[ "$QUERY" =~ $UUID_SHORT_REGEX ]]; then
         EXTRACT_SESSION="${BASH_REMATCH[1]}"
         QUERY="${BASH_REMATCH[3]}"
+        AUTO_DETECTED_UUID=true
     fi
 fi
 
@@ -132,7 +141,7 @@ fi
 
 # Convert to Claude projects path format
 CLAUDE_PROJECT_DIR=$(echo "$TARGET_PATH" | sed 's|^/|-|' | sed 's|/|-|g')
-CLAUDE_PROJECTS_BASE="$HOME/.claude/projects"
+CLAUDE_PROJECTS_BASE="${CLAUDE_PROJECTS_BASE:-$HOME/.claude/projects}"
 PROJECT_HISTORY_DIR="$CLAUDE_PROJECTS_BASE/$CLAUDE_PROJECT_DIR"
 
 # =====================================================================
@@ -456,80 +465,117 @@ PYTHON_SCRIPT
 # MODE 1: Direct extraction (--extract <session-id>)
 # ==============================================================================
 if [[ -n "$EXTRACT_SESSION" ]]; then
-    echo "Extracting session: $EXTRACT_SESSION"
-    echo ""
-
     # Capture stderr for ambiguity messages
     ambiguity_msg=$(mktemp)
-    session_file=$(find_session_file "$EXTRACT_SESSION" 2>"$ambiguity_msg")
-    find_status=$?
+    find_status=0
+    session_file=$(find_session_file "$EXTRACT_SESSION" 2>"$ambiguity_msg") || find_status=$?
 
     if [[ -z "$session_file" ]]; then
-        echo "Error: Session not found: $EXTRACT_SESSION"
-        echo "Searched in: $PROJECT_HISTORY_DIR"
-        echo "Also searched all projects in: $CLAUDE_PROJECTS_BASE"
         rm -f "$ambiguity_msg"
-        exit 1
-    fi
+        if [[ "$AUTO_DETECTED_UUID" == true ]]; then
+            echo "Note: '$EXTRACT_SESSION' did not match any session ID. Searching as text instead."
+            echo ""
+            QUERY="$ORIGINAL_QUERY"
+            EXTRACT_SESSION=""
+        else
+            echo "Error: Session not found: $EXTRACT_SESSION"
+            echo "Searched in: $PROJECT_HISTORY_DIR"
+            echo "Also searched all projects in: $CLAUDE_PROJECTS_BASE"
+            exit 1
+        fi
+    else
+        if [[ $find_status -eq 2 ]]; then
+            echo "Warning: Multiple sessions match partial ID '$EXTRACT_SESSION':"
+            cat "$ambiguity_msg"
+            echo ""
+            resolved_id=$(basename "$session_file" .jsonl)
+            echo "Using first match: $resolved_id"
+            echo "Tip: Provide more characters of the UUID to get an exact match."
+            echo ""
+        fi
+        rm -f "$ambiguity_msg"
 
-    if [[ $find_status -eq 2 ]]; then
-        echo "Warning: Multiple sessions match partial ID '$EXTRACT_SESSION':"
-        cat "$ambiguity_msg"
-        echo ""
+        # Show resolved ID if it differs from input (partial match)
         resolved_id=$(basename "$session_file" .jsonl)
-        echo "Using first match: $resolved_id"
-        echo "Tip: Provide more characters of the UUID to get an exact match."
-        echo ""
-    fi
-    rm -f "$ambiguity_msg"
+        if [[ "$resolved_id" != "$EXTRACT_SESSION" ]]; then
+            echo "Resolved partial ID to: $resolved_id"
+            echo ""
+        fi
 
-    # Show resolved ID if it differs from input (partial match)
-    resolved_id=$(basename "$session_file" .jsonl)
-    if [[ "$resolved_id" != "$EXTRACT_SESSION" ]]; then
-        echo "Resolved partial ID to: $resolved_id"
-        echo ""
-    fi
+        # Detect instruction-style filter (>4 words = likely a natural language instruction, not a keyword)
+        # Skip grep and extract full session — the calling LLM handles semantic interpretation
+        if [[ -n "$QUERY" ]]; then
+            word_count=$(echo "$QUERY" | wc -w | tr -d ' ')
+            if [[ "$word_count" -gt 4 ]]; then
+                echo "Instruction: $QUERY"
+                echo "(full session extracted — filter skipped for LLM interpretation)"
+                echo ""
+                QUERY=""
+            fi
+        fi
 
-    extract_session "$session_file" "$MAX_LINES" "$QUERY"
-    exit 0
+        extract_session "$session_file" "$MAX_LINES" "$QUERY"
+        exit 0
+    fi
 fi
 
 # ==============================================================================
 # MODE 2: Search (with optional extraction)
 # ==============================================================================
 
-# Check if project history directory exists
-if [[ ! -d "$PROJECT_HISTORY_DIR" ]]; then
-    echo "Error: No chat history found for this project"
-    echo "Looking for: $PROJECT_HISTORY_DIR"
+# Build list of directories to search
+SEARCH_DIRS=()
+if [[ "$ALL_PROJECTS" == true ]]; then
+    while IFS= read -r dir; do
+        SEARCH_DIRS+=("$dir")
+    done < <(find "$CLAUDE_PROJECTS_BASE" -maxdepth 1 -type d ! -path "$CLAUDE_PROJECTS_BASE")
+    if [[ ${#SEARCH_DIRS[@]} -eq 0 ]]; then
+        echo "Error: No project histories found in $CLAUDE_PROJECTS_BASE"
+        exit 1
+    fi
+    echo "Query: $QUERY"
+    echo "Searching across ALL projects (${#SEARCH_DIRS[@]} directories)"
     echo ""
-    echo "Available project histories:"
-    ls "$CLAUDE_PROJECTS_BASE" 2>/dev/null | grep -E "^-Users-" | head -10
-    exit 1
+else
+    if [[ ! -d "$PROJECT_HISTORY_DIR" ]]; then
+        echo "Error: No chat history found for this project"
+        echo "Looking for: $PROJECT_HISTORY_DIR"
+        echo ""
+        echo "Available project histories:"
+        ls "$CLAUDE_PROJECTS_BASE" 2>/dev/null | grep -E "^-" | head -10
+        exit 1
+    fi
+    SEARCH_DIRS=("$PROJECT_HISTORY_DIR")
+    echo "Query: $QUERY"
+    echo "Searching in: $PROJECT_HISTORY_DIR"
+    echo ""
 fi
 
-echo "Query: $QUERY"
-echo "Searching in: $PROJECT_HISTORY_DIR"
-echo ""
+# Find all session files across search directories
+for search_dir in "${SEARCH_DIRS[@]}"; do
+    while read -r session_file; do
+        filename=$(basename "$session_file" .jsonl)
 
-# Find all session files (UUIDs only, not agent files)
-while read -r session_file; do
-    filename=$(basename "$session_file" .jsonl)
+        # Skip if not a UUID format (8-4-4-4-12)
+        if [[ ! "$filename" =~ ^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$ ]]; then
+            continue
+        fi
 
-    # Skip if not a UUID format (8-4-4-4-12)
-    if [[ ! "$filename" =~ ^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$ ]]; then
-        continue
-    fi
+        # Count matches directly on file (case-insensitive)
+        count=$(grep -ci "$QUERY" "$session_file" 2>/dev/null || true)
 
-    # Count matches directly on file (case-insensitive)
-    count=$(grep -ci "$QUERY" "$session_file" 2>/dev/null || true)
-
-    # Only include if we have matches
-    if [[ -n "$count" ]] && [[ "$count" -gt 0 ]]; then
-        mod_time=$(stat -f "%Sm" -t "%Y-%m-%d %H:%M" "$session_file" 2>/dev/null || date -r "$session_file" "+%Y-%m-%d %H:%M" 2>/dev/null || echo "unknown")
-        echo "$count|$filename|$mod_time" >> "$RESULTS_FILE"
-    fi
-done < <(find "$PROJECT_HISTORY_DIR" -maxdepth 1 -name "*.jsonl" -type f ! -name "agent-*")
+        # Only include if we have matches
+        if [[ -n "$count" ]] && [[ "$count" -gt 0 ]]; then
+            mod_time=$(stat -f "%Sm" -t "%Y-%m-%d %H:%M" "$session_file" 2>/dev/null || date -r "$session_file" "+%Y-%m-%d %H:%M" 2>/dev/null || echo "unknown")
+            if [[ "$ALL_PROJECTS" == true ]]; then
+                project_dir=$(basename "$(dirname "$session_file")")
+                echo "$count|$filename|$mod_time|$project_dir" >> "$RESULTS_FILE"
+            else
+                echo "$count|$filename|$mod_time" >> "$RESULTS_FILE"
+            fi
+        fi
+    done < <(find "$search_dir" -maxdepth 1 -name "*.jsonl" -type f ! -name "agent-*")
+done
 
 # Check if we have any results
 if [[ ! -s "$RESULTS_FILE" ]]; then
@@ -545,13 +591,24 @@ echo ""
 
 # Display search results
 count=0
-echo "$SORTED_RESULTS" | head -n "$LIMIT" | while IFS='|' read -r matches session_id mod_time; do
-    ((count++)) || true
-    echo "$count. [${session_id:0:8}] - $matches matches - $mod_time"
-    echo "   Full ID: $session_id"
-    echo "   Resume: claude --resume $session_id"
-    echo ""
-done
+if [[ "$ALL_PROJECTS" == true ]]; then
+    echo "$SORTED_RESULTS" | head -n "$LIMIT" | while IFS='|' read -r matches session_id mod_time project_dir; do
+        ((count++)) || true
+        echo "$count. [${session_id:0:8}] - $matches matches - $mod_time"
+        echo "   Full ID: $session_id"
+        echo "   Project: $project_dir"
+        echo "   Resume: claude --resume $session_id"
+        echo ""
+    done
+else
+    echo "$SORTED_RESULTS" | head -n "$LIMIT" | while IFS='|' read -r matches session_id mod_time; do
+        ((count++)) || true
+        echo "$count. [${session_id:0:8}] - $matches matches - $mod_time"
+        echo "   Full ID: $session_id"
+        echo "   Resume: claude --resume $session_id"
+        echo ""
+    done
+fi
 
 # ==============================================================================
 # MODE 2b: Extract matches if requested
@@ -563,7 +620,7 @@ if [[ "$EXTRACT_MATCHES" == true ]]; then
     echo ""
 
     extract_count=0
-    echo "$SORTED_RESULTS" | head -n "$EXTRACT_LIMIT" | while IFS='|' read -r matches session_id mod_time; do
+    echo "$SORTED_RESULTS" | head -n "$EXTRACT_LIMIT" | while IFS='|' read -r matches session_id mod_time _rest; do
         ((extract_count++)) || true
 
         session_file=$(find_session_file "$session_id")
