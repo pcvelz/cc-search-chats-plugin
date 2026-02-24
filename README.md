@@ -88,6 +88,13 @@ The plugin automatically interprets your input:
 
 ## Release Notes
 
+### [v1.3.1](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v1.3.1) - Regex filter support
+
+- **Regex filters** — extract-mode filters now use regex matching instead of literal substring, consistent with search-mode's grep behavior
+- **OR syntax** — use `term1|term2|term3` to match any of multiple terms (e.g., `/search-chat bbfba5e4 "error|warning|failed"`)
+- **BRE compatibility** — `\|` (grep-style OR) is automatically normalized to `|` so both syntaxes work
+- **Graceful fallback** — invalid regex patterns fall back to literal matching instead of crashing
+
 ### [v1.3.0](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v1.3.0) - Smart input interpretation & cross-project search
 
 - **Smart interpretation** — input is automatically classified: UUID-like text that doesn't match a session falls back to text search instead of erroring

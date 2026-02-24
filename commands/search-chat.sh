@@ -296,13 +296,31 @@ extract_session() {
 import json
 import sys
 import os
+import re
 from datetime import datetime
 
 session_file = os.environ.get('SEARCH_SESSION_FILE', '')
 max_lines = int(os.environ.get('SEARCH_MAX_LINES', '500'))
-query = os.environ.get('SEARCH_QUERY', '').lower() or None
+query_raw = os.environ.get('SEARCH_QUERY', '').strip() or None
 context_lines = int(os.environ.get('SEARCH_CONTEXT_LINES', '0'))
 tail_lines = int(os.environ.get('SEARCH_TAIL_LINES', '0'))
+
+# Compile query as regex (case-insensitive) for consistent grep-like behavior
+# Normalize BRE-style \| to ERE-style | (grep uses \| for OR, Python re uses |)
+query = query_raw
+query_re = None
+if query_raw:
+    normalized = query_raw.replace('\\|', '|')
+    try:
+        query_re = re.compile(normalized, re.IGNORECASE)
+    except re.error:
+        query_re = re.compile(re.escape(query_raw), re.IGNORECASE)
+
+def matches_query(text):
+    """Check if text matches the query (regex or literal fallback)."""
+    if query_re is None:
+        return False
+    return bool(query_re.search(text))
 
 def extract_text(content):
     """Extract readable text from message content."""
@@ -402,7 +420,7 @@ if query and context_lines > 0:
     # Context mode: find matching messages, include N messages before/after
     match_indices = set()
     for i, (role, content) in enumerate(messages):
-        if query in content.lower():
+        if matches_query(content):
             for j in range(max(0, i - context_lines), min(len(messages), i + context_lines + 1)):
                 match_indices.add(j)
 
@@ -426,7 +444,7 @@ if query and context_lines > 0:
                 output_lines.append("---")
             for idx in block:
                 role, content = messages[idx]
-                is_match = query in content.lower()
+                is_match = matches_query(content)
                 marker = ">>>" if is_match else "   "
                 for line in format_message(role, content):
                     output_lines.append(f"{marker} {line}")
@@ -434,7 +452,7 @@ if query and context_lines > 0:
 elif query:
     # Filter mode (no context): only show matching messages
     for role, content in messages:
-        if query not in content.lower():
+        if not matches_query(content):
             continue
         output_lines.extend(format_message(role, content))
 else:
