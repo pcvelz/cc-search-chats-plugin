@@ -15,6 +15,7 @@ TAIL_LINES=0
 PROJECT_PATH=""
 QUERY=""
 ALL_PROJECTS=false
+INCLUDE_AGENTS=false
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -64,6 +65,10 @@ while [[ $# -gt 0 ]]; do
             ALL_PROJECTS=true
             shift
             ;;
+        --include-agents)
+            INCLUDE_AGENTS=true
+            shift
+            ;;
         --help|-h)
             echo "Usage: search-chat.sh <query|session-uuid> [OPTIONS]"
             echo ""
@@ -74,6 +79,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --limit N          Maximum sessions to return (default: 10)"
             echo "  --project PATH     Search in specific project (default: current directory)"
             echo "  --all-projects     Search across all projects (default: current project only)"
+            echo "  --include-agents   Include subagent conversations (default: off)"
             echo ""
             echo "Extraction Options:"
             echo "  --extract ID       Extract conversation from specific session ID"
@@ -379,6 +385,10 @@ try:
                     session_info['cwd'] = data['cwd']
                 if 'timestamp' in data:
                     session_info['timestamp'] = data['timestamp']
+                if 'agentId' in data:
+                    session_info['agentId'] = data['agentId']
+                if 'slug' in data:
+                    session_info['slug'] = data['slug']
 
                 if 'message' in data:
                     msg = data['message']
@@ -397,6 +407,9 @@ except Exception as e:
 # Output header
 print("=" * 80)
 print(f"SESSION: {session_info.get('id', 'unknown')}")
+if session_info.get('agentId'):
+    agent_label = session_info.get('slug', session_info['agentId'])
+    print(f"AGENT: {agent_label} ({session_info['agentId'][:16]})")
 if session_info.get('timestamp'):
     try:
         ts = datetime.fromisoformat(session_info['timestamp'].replace('Z', '+00:00'))
@@ -533,6 +546,18 @@ if [[ -n "$EXTRACT_SESSION" ]]; then
         fi
 
         extract_session "$session_file" "$MAX_LINES" "$QUERY"
+
+        # Extract subagent conversations if --include-agents
+        if [[ "$INCLUDE_AGENTS" == true ]]; then
+            session_dir="${session_file%.jsonl}"
+            if [[ -d "$session_dir/subagents" ]]; then
+                for agent_file in "$session_dir/subagents"/agent-*.jsonl; do
+                    [[ -f "$agent_file" ]] || continue
+                    extract_session "$agent_file" "$MAX_LINES" "$QUERY"
+                done
+            fi
+        fi
+
         exit 0
     fi
 fi
@@ -581,6 +606,15 @@ for search_dir in "${SEARCH_DIRS[@]}"; do
 
         # Count matches directly on file (case-insensitive)
         count=$(grep -ci "$QUERY" "$session_file" 2>/dev/null || true)
+
+        # Include subagent matches if --include-agents
+        if [[ "$INCLUDE_AGENTS" == true ]]; then
+            session_dir="${search_dir}/${filename}"
+            if [[ -d "$session_dir/subagents" ]]; then
+                agent_count=$(grep -rci "$QUERY" "$session_dir/subagents/" 2>/dev/null | awk -F: '{s+=$NF}END{print s+0}')
+                count=$((count + agent_count))
+            fi
+        fi
 
         # Only include if we have matches
         if [[ -n "$count" ]] && [[ "$count" -gt 0 ]]; then
@@ -645,6 +679,18 @@ if [[ "$EXTRACT_MATCHES" == true ]]; then
         if [[ -n "$session_file" ]]; then
             echo "[$extract_count/$EXTRACT_LIMIT] Extracting: $session_id"
             extract_session "$session_file" "$MAX_LINES" "$QUERY"
+
+            # Extract subagent conversations if --include-agents
+            if [[ "$INCLUDE_AGENTS" == true ]]; then
+                session_dir="${session_file%.jsonl}"
+                if [[ -d "$session_dir/subagents" ]]; then
+                    for agent_file in "$session_dir/subagents"/agent-*.jsonl; do
+                        [[ -f "$agent_file" ]] || continue
+                        extract_session "$agent_file" "$MAX_LINES" "$QUERY"
+                    done
+                fi
+            fi
+
             echo ""
         fi
     done
