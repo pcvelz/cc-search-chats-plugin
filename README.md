@@ -85,8 +85,16 @@ The plugin automatically interprets your input:
 | `--max-lines N` | Max lines per extraction | 500 |
 | `--context N` | Messages of context around filter matches | 0 |
 | `--tail N` | Show only last N lines of extraction | - |
+| `--include-agents` | Include subagent conversations in search/extraction | off |
 
 ## Release Notes
+
+### [v1.3.2](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v1.3.2) - Include subagent conversations
+
+- **`--include-agents` flag** — include subagent conversations in both search and extraction. Team/orchestrator sessions store subagent files in `<session>/subagents/agent-*.jsonl` which were previously invisible
+- **Search mode** — match counts now include hits from subagent files when flag is set
+- **Extraction mode** — subagent conversations are appended after the main session, each with an `AGENT:` header showing slug and agentId
+- Default is off — existing behavior is unchanged without the flag
 
 ### [v1.3.1](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v1.3.1) - Regex filter support
 
