@@ -89,6 +89,10 @@ The plugin automatically interprets your input:
 
 ## Release Notes
 
+### [v1.3.3](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v1.3.3) - Fix flags in single-argument UUID extraction
+
+- **Fix:** When UUID and flags (e.g. `--tail 30`) were passed as a single quoted argument, flags were treated as filter text instead of being parsed — resulting in empty output. Now re-parses remaining text after UUID detection for embedded flags.
+
 ### [v1.3.2](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v1.3.2) - Include subagent conversations
 
 - **`--include-agents` flag** — include subagent conversations in both search and extraction. Team/orchestrator sessions store subagent files in `<session>/subagents/agent-*.jsonl` which were previously invisible
