@@ -124,6 +124,33 @@ if [[ -n "$QUERY" ]] && [[ -z "$EXTRACT_SESSION" ]]; then
         EXTRACT_SESSION="${BASH_REMATCH[1]}"
         QUERY="${BASH_REMATCH[3]}"
         AUTO_DETECTED_UUID=true
+        # Re-parse remaining text for embedded flags (handles case where UUID + flags
+        # were passed as a single quoted argument, e.g. "UUID --tail 30")
+        if [[ -n "$QUERY" ]]; then
+            REMAINING=""
+            # shellcheck disable=SC2086
+            set -- $QUERY
+            while [[ $# -gt 0 ]]; do
+                case $1 in
+                    --tail)       TAIL_LINES="$2"; shift 2 ;;
+                    --context)    CONTEXT_LINES="${2:-3}"; shift 2 ;;
+                    --max-lines)  MAX_LINES="$2"; shift 2 ;;
+                    --extract-matches) EXTRACT_MATCHES=true; shift ;;
+                    --extract-limit)   EXTRACT_LIMIT="$2"; shift 2 ;;
+                    --include-agents)  INCLUDE_AGENTS=true; shift ;;
+                    --limit)      LIMIT="$2"; shift 2 ;;
+                    *)
+                        if [[ -n "$REMAINING" ]]; then
+                            REMAINING="$REMAINING $1"
+                        else
+                            REMAINING="$1"
+                        fi
+                        shift
+                        ;;
+                esac
+            done
+            QUERY="$REMAINING"
+        fi
     fi
 fi
 
