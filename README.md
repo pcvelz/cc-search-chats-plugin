@@ -86,8 +86,16 @@ The plugin automatically interprets your input:
 | `--context N` | Messages of context around filter matches | 0 |
 | `--tail N` | Show only last N lines of extraction | - |
 | `--include-agents` | Include subagent conversations in search/extraction | off |
+| `--include-self` | Include current session in results (excluded by default) | off |
+| `--exclude-session ID` | Exclude a specific session by ID | - |
 
 ## Release Notes
+
+### [v1.3.4](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v1.3.4) - Auto-exclude current session
+
+- **Current session excluded by default** — the active session (most recently modified JSONL) is automatically filtered out of search results, so you never see your own session in the output
+- **`--include-self` flag** — opt-in to include the current session when needed
+- **`--exclude-session ID` flag** — manually exclude any specific session by ID
 
 ### [v1.3.3](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v1.3.3) - Fix flags in single-argument UUID extraction
 

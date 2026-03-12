@@ -44,6 +44,8 @@ bash ${CLAUDE_PLUGIN_ROOT}/commands/search-chat.sh $ARGUMENTS
 ### Search Options
 - `--limit N` - Maximum sessions to return (default: 10)
 - `--project PATH` - Search in specific project (default: current directory)
+- `--include-self` - Include current session in results (excluded by default)
+- `--exclude-session ID` - Exclude a specific session by ID
 
 ### Extraction Options
 - `--extract ID` - Extract full conversation from a specific session ID

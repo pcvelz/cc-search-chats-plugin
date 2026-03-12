@@ -16,6 +16,8 @@ PROJECT_PATH=""
 QUERY=""
 ALL_PROJECTS=false
 INCLUDE_AGENTS=false
+EXCLUDE_SESSION=""
+INCLUDE_SELF=false
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -69,6 +71,14 @@ while [[ $# -gt 0 ]]; do
             INCLUDE_AGENTS=true
             shift
             ;;
+        --exclude-session)
+            EXCLUDE_SESSION="$2"
+            shift 2
+            ;;
+        --include-self)
+            INCLUDE_SELF=true
+            shift
+            ;;
         --help|-h)
             echo "Usage: search-chat.sh <query|session-uuid> [OPTIONS]"
             echo ""
@@ -80,6 +90,8 @@ while [[ $# -gt 0 ]]; do
             echo "  --project PATH     Search in specific project (default: current directory)"
             echo "  --all-projects     Search across all projects (default: current project only)"
             echo "  --include-agents   Include subagent conversations (default: off)"
+            echo "  --include-self     Include current session in results (excluded by default)"
+            echo "  --exclude-session ID  Exclude a specific session from results"
             echo ""
             echo "Extraction Options:"
             echo "  --extract ID       Extract conversation from specific session ID"
@@ -138,6 +150,8 @@ if [[ -n "$QUERY" ]] && [[ -z "$EXTRACT_SESSION" ]]; then
                     --extract-matches) EXTRACT_MATCHES=true; shift ;;
                     --extract-limit)   EXTRACT_LIMIT="$2"; shift 2 ;;
                     --include-agents)  INCLUDE_AGENTS=true; shift ;;
+                    --exclude-session) EXCLUDE_SESSION="$2"; shift 2 ;;
+                    --include-self) INCLUDE_SELF=true; shift ;;
                     --limit)      LIMIT="$2"; shift 2 ;;
                     *)
                         if [[ -n "$REMAINING" ]]; then
@@ -176,6 +190,15 @@ fi
 CLAUDE_PROJECT_DIR=$(echo "$TARGET_PATH" | sed 's|^/|-|' | sed 's|/|-|g')
 CLAUDE_PROJECTS_BASE="${CLAUDE_PROJECTS_BASE:-$HOME/.claude/projects}"
 PROJECT_HISTORY_DIR="$CLAUDE_PROJECTS_BASE/$CLAUDE_PROJECT_DIR"
+
+# Auto-detect current session (most recently modified JSONL) and exclude by default
+if [[ "$INCLUDE_SELF" != true ]] && [[ -z "$EXCLUDE_SESSION" ]] && [[ -d "$PROJECT_HISTORY_DIR" ]]; then
+    CURRENT_SESSION_FILE=$(find "$PROJECT_HISTORY_DIR" -maxdepth 1 -name "*.jsonl" -type f ! -name "agent-*" -print0 2>/dev/null \
+        | xargs -0 ls -t 2>/dev/null | head -1)
+    if [[ -n "$CURRENT_SESSION_FILE" ]]; then
+        EXCLUDE_SESSION=$(basename "$CURRENT_SESSION_FILE" .jsonl)
+    fi
+fi
 
 # =====================================================================
 # Mode: Read specific tool result from a session
@@ -523,6 +546,12 @@ PYTHON_SCRIPT
 # MODE 1: Direct extraction (--extract <session-id>)
 # ==============================================================================
 if [[ -n "$EXTRACT_SESSION" ]]; then
+    # Check if trying to extract excluded session
+    if [[ -n "$EXCLUDE_SESSION" ]] && [[ "$EXTRACT_SESSION" == "$EXCLUDE_SESSION" || "$EXCLUDE_SESSION" == "$EXTRACT_SESSION"* ]]; then
+        echo "Session $EXTRACT_SESSION is excluded (current session)."
+        exit 0
+    fi
+
     # Capture stderr for ambiguity messages
     ambiguity_msg=$(mktemp)
     find_status=0
@@ -628,6 +657,11 @@ for search_dir in "${SEARCH_DIRS[@]}"; do
 
         # Skip if not a UUID format (8-4-4-4-12)
         if [[ ! "$filename" =~ ^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$ ]]; then
+            continue
+        fi
+
+        # Skip excluded session
+        if [[ -n "$EXCLUDE_SESSION" ]] && [[ "$filename" == "$EXCLUDE_SESSION" || "$filename" == "$EXCLUDE_SESSION"* ]]; then
             continue
         fi
 
