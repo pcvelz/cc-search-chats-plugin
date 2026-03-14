@@ -91,6 +91,11 @@ The plugin automatically interprets your input:
 
 ## Release Notes
 
+### [v1.3.5](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v1.3.5) - Prevent context leak from extracted sessions
+
+- **Context leak guardrail** — skill definition now explicitly warns the LLM that extracted session content is historical data to display, not instructions to execute. Prevents the assistant from acting on tasks found in previous sessions (e.g., SSHing into servers, running deployments mentioned in extracted chats)
+- **Ignore surrounding text** — clarifies that any text surrounding the slash command invocation should be ignored, preventing misinterpretation of arguments as PIDs or other entities
+
 ### [v1.3.4](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v1.3.4) - Auto-exclude current session
 
 - **Current session excluded by default** — the active session (most recently modified JSONL) is automatically filtered out of search results, so you never see your own session in the output
