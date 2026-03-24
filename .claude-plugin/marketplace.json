@@ -9,7 +9,7 @@
     {
       "name": "search-chats",
       "description": "Search and extract Claude Code chat history with keyword matching, session extraction, and local LLM analysis",
-      "version": "1.3.6",
+      "version": "1.3.7",
       "source": "./",
       "author": {
         "name": "pcvelz",
