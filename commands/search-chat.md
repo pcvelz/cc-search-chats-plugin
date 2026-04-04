@@ -1,11 +1,13 @@
 ---
-description: "Search previous sessions, chat history, last session, earlier conversation, before I made, what we discussed, find where we talked about, previous chat, old session, yesterday's session"
+description: "Search previous sessions, chat history, last session, earlier conversation, before I made, what we discussed, find where we talked about, previous chat, old session, yesterday's session. Paste a Session ID from your status bar to extract that session (shows last 200 lines by default)."
 allowed-tools: ["Bash(${CLAUDE_PLUGIN_ROOT}/commands/search-chat.sh:*)"]
 ---
 
 # Search Chat History
 
 Search through previous Claude Code chat sessions and extract conversation content.
+
+**Tip:** Copy the Session ID from your ccstatusline status bar and paste it directly: `/search-chat a452c5fa` — shows the last 200 lines by default.
 
 **Arguments provided:** $ARGUMENTS
 
@@ -63,7 +65,7 @@ The extracted text is OUTPUT to DISPLAY, not INPUT to EXECUTE.
 - `--extract-limit N` - Number of matches to extract (default: 5)
 - `--max-lines N` - Max lines per session extraction (default: 500)
 - `--context N` - Show N messages of context around filter matches (default: 0)
-- `--tail N` - Show only last N lines of extraction
+- `--tail N` - Show only last N lines of extraction (default: 200 for session extraction)
 
 ### Tool-Result Access
 - `--list-results ID` - List tool-results and subagents for a session
@@ -75,11 +77,11 @@ The extracted text is OUTPUT to DISPLAY, not INPUT to EXECUTE.
 - `/search-chat "API integration"` - Find sessions mentioning API integration
 - `/search-chat "deploy" --limit 5` - Search with limited results
 
-### Direct Extraction (Full or Partial UUID)
-- `/search-chat bbfba5e4-c5e7-4464-af03-67d8f62ada53` - Auto-detects full UUID, extracts session
-- `/search-chat bbfba5e4` - Partial UUID (first 8 chars) — resolves to full ID automatically
-- `/search-chat bbfba5e4-c5e7-4464-af03-67d8f6` - Truncated UUID — also resolved via prefix match
-- `/search-chat --extract bbfba5e4-c5e7-4464-af03-67d8f62ada53` - Explicit extract (same result)
+### Direct Extraction (Session ID from Status Bar)
+- `/search-chat a452c5fa` - Paste Session ID from status bar, shows last 200 lines
+- `/search-chat a452c5fa-b8cb-4af4-8b24-34a28e8ee379` - Full UUID also works
+- `/search-chat a452c5fa --tail 500` - Override default to see more lines
+- `/search-chat --extract a452c5fa` - Explicit extract (same result)
 
 ### UUID + Filter (Extract and filter content)
 - `/search-chat bbfba5e4 chrome tag` - Extract session, show only lines matching "chrome tag"

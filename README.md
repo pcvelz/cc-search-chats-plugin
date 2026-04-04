@@ -11,6 +11,22 @@ A Claude Code plugin for searching and extracting chat history from previous ses
 - **Local LLM Analysis**: Pipe extracted content to llama.cpp for analysis
 - **Session Deletion**: Remove specific sessions from history
 
+## Use Case: Session ID from Your Status Bar
+
+With [ccstatusline-usage](https://github.com/pcvelz/ccstatusline-usage) your status bar shows the Session ID at all times:
+
+```
+  Session: [██░░░░░░░░░░░░░] 11.0% | Weekly: [█████████░░░░░░] 57.0% | 3:47 hr |  | Model: Opus 4.6[1m]
+  Session ID: 26083761-5c49-4a70-a2ec-8526f05c65f6
+  Context: [░░░░░░░░░░░░░░░] 30k/1M (3%) | Pace: [░░░░░██|░░░░░░░] D7/7 -28%
+```
+
+Copy that Session ID and mention it naturally in a new conversation:
+
+> "I had an issue in Session ID: 26083761-5c49-4a70-a2ec-8526f05c65f6"
+
+The agent uses `/search-chat` to look up that session and retrieves the last 200 lines of context automatically — no special commands needed.
+
 ## Installation
 
 ### Via Marketplace (Recommended)
@@ -84,12 +100,34 @@ The plugin automatically interprets your input:
 | `--extract-limit N` | Number to extract | 5 |
 | `--max-lines N` | Max lines per extraction | 500 |
 | `--context N` | Messages of context around filter matches | 0 |
-| `--tail N` | Show only last N lines of extraction | - |
+| `--tail N` | Show only last N lines of extraction | 200 (session extraction) |
 | `--include-agents` | Include subagent conversations in search/extraction | off |
 | `--include-self` | Include current session in results (excluded by default) | off |
 | `--exclude-session ID` | Exclude a specific session by ID | - |
+| `--json` | Output results as structured JSON | off |
+
+### New in v2.0.0
+
+- **SQLite FTS5 search** — keyword searches now use a full-text index with BM25 ranking instead of raw grep. Faster on large histories, better relevance.
+- **`--json` output** — all results available as structured JSON for subagent consumption
+- **Adaptive search** — simple keywords use FTS5, regex patterns (`redis\|cache`, `deploy.*staging`) automatically fall back to regex matching
+- **Epoch-aware** — compression boundaries tracked as epochs. Sessions with compressed context show which messages were before/after compression.
+- **JIT indexing** — search index built on first use and updated incrementally when session files change
+- **Pure Python backend** — bash script replaced with modular Python package (101 tests). All existing flags preserved.
 
 ## Release Notes
+
+### [v2.0.0](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v2.0.0) - Python search engine rewrite
+
+- **Breaking:** Replaced bash+embedded-Python with pure Python implementation
+- **New:** SQLite FTS5 full-text search with BM25 ranking (replaces grep)
+- **New:** `--json` flag for structured output (subagent consumption)
+- **New:** Epoch-aware compression tracking — search/extract by epoch
+- **New:** Adaptive search — FTS5 for keywords, regex fallback for patterns
+- **New:** JIT indexing — search index built on first use, updated incrementally
+- All existing flags preserved for backward compatibility
+- Zero external dependencies (Python 3.10+ stdlib only)
+- 101 tests across 7 test modules
 
 ### [v1.3.7](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v1.3.7) - Harden archive boundaries and strip tool details
 
@@ -184,16 +222,17 @@ That's it. Now you can say things like *"that staging bug from the other day"* o
 ## Requirements
 
 - Claude Code CLI
-- Python 3 (for JSONL parsing)
-- Optional: llama.cpp server for analysis features
+- Python 3.10+ (included on macOS, most Linux distros)
+- SQLite with FTS5 support (included in standard Python builds)
+- Zero external dependencies
 
 ## How It Works
 
 Chat sessions are stored in `~/.claude/projects/` as JSONL files. This plugin:
-1. Converts project paths to Claude's directory format
-2. Searches session files for keyword matches
-3. Parses JSONL to extract conversation content
-4. Optionally pipes content to local LLM for analysis
+1. Builds a local SQLite FTS5 index over session files (JIT, on first search)
+2. Searches with BM25 ranking for keywords, regex fallback for patterns
+3. Extracts conversations with security markers preventing LLM misinterpretation
+4. Index updates incrementally when session files change
 
 ## Updating
 

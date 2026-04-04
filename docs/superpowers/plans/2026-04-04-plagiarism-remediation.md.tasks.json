@@ -1,0 +1,26 @@
+{
+  "planPath": "docs/superpowers/plans/2026-04-04-plagiarism-remediation.md",
+  "tasks": [
+    {
+      "id": 0,
+      "subject": "Task 0: Rename identifiers and constants in source code",
+      "status": "pending",
+      "description": "**Goal:** Change all suspicious identical discretionary choices in source files.\n\n**Files:**\n- Modify: search_chat/types.py, parser.py, database.py, extractor.py\n\n**Verify:** python3 -c \"from search_chat.types import CompactBoundary; print(CompactBoundary._fields)\"\n\n```json:metadata\n{\"files\": [\"search_chat/types.py\", \"search_chat/parser.py\", \"search_chat/database.py\", \"search_chat/extractor.py\"], \"verifyCommand\": \"python3 -c \\\"from search_chat.types import CompactBoundary; print(CompactBoundary._fields)\\\"\", \"acceptanceCriteria\": [\"No pre_tokens in source\", \"No extract_text function name\", \"No >>> <<< snippet markers\", \"No lowercase [tool:\", \"SCHEMA_VERSION = 2\"]}\n```"
+    },
+    {
+      "id": 1,
+      "subject": "Task 1: Update tests to match renamed identifiers",
+      "status": "pending",
+      "blockedBy": [0],
+      "description": "**Goal:** Update all test files to reference renamed identifiers, verify all 101 tests pass.\n\n**Files:**\n- Modify: tests/test_parser.py, tests/test_database.py, tests/test_extractor.py\n\n**Verify:** python3 -m pytest tests/ -v → 101 passed\n\n```json:metadata\n{\"files\": [\"tests/test_parser.py\", \"tests/test_database.py\", \"tests/test_extractor.py\"], \"verifyCommand\": \"python3 -m pytest tests/ -v\", \"acceptanceCriteria\": [\"101 tests pass\", \"No extract_text in tests\", \"No .pre_tokens in tests\"]}\n```"
+    },
+    {
+      "id": 2,
+      "subject": "Task 2: Verification and diff review against fork",
+      "status": "pending",
+      "blockedBy": [1],
+      "description": "**Goal:** Confirm no suspicious identical lines remain between our codebase and the Denubis fork.\n\n**Verify:** bash commands/search-chat.sh \"test\" --limit 1 → returns results\n\n```json:metadata\n{\"files\": [\"search_chat/\"], \"verifyCommand\": \"bash commands/search-chat.sh \\\"test\\\" --limit 1\", \"acceptanceCriteria\": [\"Live search works\", \"No overlapping identifiers in grep\", \"Schema version is 2\"]}\n```"
+    }
+  ],
+  "lastUpdated": "2026-04-04T11:30:00Z"
+}

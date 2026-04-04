@@ -1,0 +1,61 @@
+{
+  "planPath": "docs/superpowers/plans/2026-04-04-python-search-engine.md",
+  "tasks": [
+    {
+      "id": 0,
+      "subject": "Task 0: Project Scaffolding and Test Fixtures",
+      "status": "pending",
+      "description": "**Goal:** Create directory structure, test infrastructure, and sample JSONL fixtures.\n\n**Files:**\n- Create: `search_chat/__init__.py`\n- Create: `search_chat/__main__.py` (stub)\n- Create: `tests/conftest.py`\n- Create: `tests/fixtures/sample_session.jsonl`\n- Create: `tests/fixtures/compressed_session.jsonl`\n\n**Verify:** `python3 -m search_chat --help && pytest tests/ --co`\n\n```json:metadata\n{\"files\": [\"search_chat/__init__.py\", \"search_chat/__main__.py\", \"tests/conftest.py\", \"tests/fixtures/sample_session.jsonl\", \"tests/fixtures/compressed_session.jsonl\"], \"verifyCommand\": \"python3 -m search_chat --help && pytest tests/ --co\", \"acceptanceCriteria\": [\"python3 -m search_chat runs without import errors\", \"pytest tests/ --co does not error\", \"Fixture files contain valid JSONL\"]}\n```"
+    },
+    {
+      "id": 1,
+      "subject": "Task 1: Data Types and JSONL Parser",
+      "status": "pending",
+      "blockedBy": [0],
+      "description": "**Goal:** Create NamedTuple types and JSONL parser.\n\n**Files:**\n- Create: `search_chat/types.py`\n- Create: `search_chat/parser.py`\n- Create: `tests/test_parser.py`\n\n**Verify:** `pytest tests/test_parser.py -v`\n\n```json:metadata\n{\"files\": [\"search_chat/types.py\", \"search_chat/parser.py\", \"tests/test_parser.py\"], \"verifyCommand\": \"pytest tests/test_parser.py -v\", \"acceptanceCriteria\": [\"User messages parse into ParsedMessage\", \"Assistant list content extracted correctly\", \"compact_boundary parses into CompactBoundary\", \"Malformed JSON returns None\", \"parse_session is a generator\"]}\n```"
+    },
+    {
+      "id": 2,
+      "subject": "Task 2: SQLite Database Layer with FTS5",
+      "status": "pending",
+      "blockedBy": [1],
+      "description": "**Goal:** SQLite module with FTS5 indexing, epoch assignment, JIT reindex.\n\n**Files:**\n- Create: `search_chat/database.py`\n- Create: `tests/test_database.py`\n\n**Verify:** `pytest tests/test_database.py -v`\n\n```json:metadata\n{\"files\": [\"search_chat/database.py\", \"tests/test_database.py\"], \"verifyCommand\": \"pytest tests/test_database.py -v\", \"acceptanceCriteria\": [\"Schema auto-creates\", \"Correct epoch assignment\", \"FTS5 returns matches\", \"JIT reindex only stale sessions\", \"Corrupt DB rebuilt\", \"CASCADE delete works\"]}\n```"
+    },
+    {
+      "id": 3,
+      "subject": "Task 3: Session File Discovery and UUID Resolution",
+      "status": "pending",
+      "blockedBy": [0],
+      "description": "**Goal:** Finder module for session files, path encoding, UUID resolution.\n\n**Files:**\n- Create: `search_chat/finder.py`\n- Create: `tests/test_finder.py`\n\n**Verify:** `pytest tests/test_finder.py -v`\n\n```json:metadata\n{\"files\": [\"search_chat/finder.py\", \"tests/test_finder.py\"], \"verifyCommand\": \"pytest tests/test_finder.py -v\", \"acceptanceCriteria\": [\"Path encoding correct\", \"Session files listed by mtime\", \"Agent files excluded by default\", \"Partial UUID resolution works\", \"Current session auto-detected\"]}\n```"
+    },
+    {
+      "id": 4,
+      "subject": "Task 4: Adaptive Search Engine (FTS5 + Regex Fallback)",
+      "status": "pending",
+      "blockedBy": [2],
+      "description": "**Goal:** Search engine with FTS5 primary + regex fallback.\n\n**Files:**\n- Create: `search_chat/engine.py`\n- Create: `tests/test_engine.py`\n\n**Verify:** `pytest tests/test_engine.py -v`\n\n```json:metadata\n{\"files\": [\"search_chat/engine.py\", \"tests/test_engine.py\"], \"verifyCommand\": \"pytest tests/test_engine.py -v\", \"acceptanceCriteria\": [\"FTS5 search works\", \"Regex fallback for complex patterns\", \"BRE normalization\", \"Session-level aggregation\", \"Exclude sessions\", \"Project filter\"]}\n```"
+    },
+    {
+      "id": 5,
+      "subject": "Task 5: Extraction, Output, and Security",
+      "status": "pending",
+      "blockedBy": [0],
+      "description": "**Goal:** Extraction and output with archive markers, XML sanitization, JSON output.\n\n**Files:**\n- Create: `search_chat/extractor.py`\n- Create: `search_chat/output.py`\n- Create: `tests/test_extractor.py`\n\n**Verify:** `pytest tests/test_extractor.py -v`\n\n```json:metadata\n{\"files\": [\"search_chat/extractor.py\", \"search_chat/output.py\", \"tests/test_extractor.py\"], \"verifyCommand\": \"pytest tests/test_extractor.py -v\", \"acceptanceCriteria\": [\"XML sanitization\", \"Archive markers\", \"Periodic reminders\", \"Context mode\", \"Filter mode\", \"Tail mode\", \"Valid JSON output\"]}\n```"
+    },
+    {
+      "id": 6,
+      "subject": "Task 6: CLI Argument Parsing and Main Entry Point",
+      "status": "pending",
+      "blockedBy": [1, 2, 3, 4, 5],
+      "description": "**Goal:** Wire CLI with all v1.x flags, main orchestration, bash wrapper.\n\n**Files:**\n- Create: `search_chat/args.py`\n- Modify: `search_chat/__main__.py`\n- Modify: `commands/search-chat.sh`\n- Create: `tests/test_args.py`\n\n**Verify:** `pytest tests/test_args.py -v && bash commands/search-chat.sh --help`\n\n```json:metadata\n{\"files\": [\"search_chat/args.py\", \"search_chat/__main__.py\", \"commands/search-chat.sh\", \"tests/test_args.py\"], \"verifyCommand\": \"pytest tests/test_args.py -v && bash commands/search-chat.sh --help\", \"acceptanceCriteria\": [\"All v1.x flags preserved\", \"--json flag works\", \"UUID auto-detection\", \"Embedded flag re-parsing\", \"Bash wrapper launches Python\"]}\n```"
+    },
+    {
+      "id": 7,
+      "subject": "Task 7: Plugin Integration and Documentation",
+      "status": "pending",
+      "blockedBy": [6],
+      "description": "**Goal:** Update README, version bump, end-to-end verification.\n\n**Files:**\n- Modify: `README.md`\n- Modify: `.claude-plugin/plugin.json`\n- Modify: `.claude-plugin/marketplace.json`\n\n**Verify:** `bash commands/search-chat.sh --help && bash commands/search-chat.sh 'test' --json --limit 1 | python3 -m json.tool`\n\n```json:metadata\n{\"files\": [\"README.md\", \".claude-plugin/plugin.json\", \".claude-plugin/marketplace.json\"], \"verifyCommand\": \"bash commands/search-chat.sh --help && bash commands/search-chat.sh 'test' --json --limit 1 | python3 -m json.tool\", \"acceptanceCriteria\": [\"README updated with new features\", \"Release notes for v2.0.0\", \"Version bumped in plugin files\", \"End-to-end smoke test passes\"]}\n```"
+    }
+  ],
+  "lastUpdated": "2026-04-04T12:00:00Z"
+}
