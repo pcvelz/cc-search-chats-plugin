@@ -43,6 +43,46 @@ class TestContentToText:
         result = content_to_text(12345)
         assert result == "12345"
 
+    def test_collapses_slash_command_with_args(self):
+        content = (
+            "<command-message>search-chats:search-chat</command-message>\n"
+            "<command-name>/search-chats:search-chat</command-name>\n"
+            "<command-args>0847ef96</command-args>\n"
+            "# Search Chat History\n"
+            "Lots of skill prompt text that we don't want re-injected..."
+        )
+        result = content_to_text(content)
+        assert result == "[SLASH-COMMAND: /search-chats:search-chat args=0847ef96]"
+
+    def test_collapses_slash_command_without_args(self):
+        content = (
+            "<command-message>commit</command-message>\n"
+            "<command-name>/commit</command-name>\n"
+            "<command-args></command-args>\n"
+            "# Commit skill prompt..."
+        )
+        result = content_to_text(content)
+        assert result == "[SLASH-COMMAND: /commit]"
+
+    def test_collapses_slash_command_in_list_content(self):
+        content = [
+            {
+                "type": "text",
+                "text": (
+                    "<command-message>summarize-chat</command-message>\n"
+                    "<command-name>/search-chats:summarize-chat</command-name>\n"
+                    "<command-args>abc123</command-args>\n"
+                    "# Skill prompt body..."
+                ),
+            }
+        ]
+        result = content_to_text(content)
+        assert result == "[SLASH-COMMAND: /search-chats:summarize-chat args=abc123]"
+
+    def test_regular_text_mentioning_tag_is_not_collapsed(self):
+        content = "I saw the <command-name> tag in the docs earlier."
+        assert content_to_text(content) == content
+
 
 class TestParseLine:
     def test_user_message(self):

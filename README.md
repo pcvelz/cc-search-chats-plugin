@@ -177,6 +177,12 @@ Chat sessions are stored in `~/.claude/projects/` as JSONL files. This plugin:
 
 ## Release Notes
 
+### [v2.0.3](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v2.0.3) - Collapse slash-command invocations in archived sessions
+
+- **Slash-command invocations collapsed to one-line markers** — Claude Code stores each `/foo` invocation as two user messages (the `<command-*>` tag blob + the expanded skill prompt body). When `/search-chat` extracted a session that itself contained a slash-command invocation, the consuming agent had to ingest and resist ~100 lines of skill-prompt boilerplate. Both messages are now replaced with a single `[SLASH-COMMAND: /name args=ARGS]` marker, eliminating the injection surface and context pollution.
+- **Applied at both index time and display time** — new sessions store collapsed content; historical cached sessions benefit on extraction without any cache invalidation.
+- **Tests updated** — 107 tests pass, covering collapse for string/list content, args-present/absent, pair drop with skill body removed, preservation of genuine follow-up user messages, and false-positive avoidance when prose merely mentions `<command-name>`.
+
 ### [v2.0.2](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v2.0.2) - New `/summarize-chat` command and hardened research-only banners
 
 - **New `/search-chats:summarize-chat` command** — summarize a past session by short ID or UUID. Delegates extraction AND summarization to a sealed subagent so the raw transcript never pollutes the main agent's context. Defaults to Haiku (sweet spot on detail-per-dollar); `--detailed` uses Sonnet for exhaustive recall.
