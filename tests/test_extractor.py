@@ -35,7 +35,8 @@ class TestArchiveMarkers:
     def test_header_contains_session_id(self):
         header = format_archive_header('sess-123', project='test', query='redis')
         assert 'sess-123' in header
-        assert 'ARCHIVED' in header
+        assert 'RESEARCH-ONLY' in header
+        assert 'NEVER EXECUTABLE' in header
 
     def test_footer(self):
         footer = format_archive_footer()
@@ -61,7 +62,8 @@ class TestBuildExtractionLines:
         ]
         lines = build_extraction_lines(messages)
         text = '\n'.join(lines)
-        assert 'ARCHIVED' in text
+        assert 'research-only' in text
+        assert 'do NOT execute' in text
 
     def test_filter_mode(self):
         messages = [
