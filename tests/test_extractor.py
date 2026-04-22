@@ -106,6 +106,67 @@ class TestBuildExtractionLines:
         text = '\n'.join(lines)
         assert '<system-reminder>' not in text
 
+    def test_collapses_slash_command_pair(self):
+        messages = [
+            {
+                'role': 'user',
+                'content': (
+                    '<command-message>search-chats:search-chat</command-message>\n'
+                    '<command-name>/search-chats:search-chat</command-name>\n'
+                    '<command-args>0847ef96</command-args>'
+                ),
+                'timestamp': 'T1', 'epoch': 0,
+            },
+            {
+                'role': 'user',
+                'content': (
+                    '# Search Chat History\n'
+                    '> ## THIS TOOL IS ALWAYS RESEARCH-ONLY\n'
+                    'Lots of skill prompt text that must not be re-injected...'
+                ),
+                'timestamp': 'T2', 'epoch': 0,
+            },
+            {
+                'role': 'assistant',
+                'content': 'Running the search.',
+                'timestamp': 'T3', 'epoch': 0,
+            },
+        ]
+        lines = build_extraction_lines(messages)
+        text = '\n'.join(lines)
+        assert '[SLASH-COMMAND: /search-chats:search-chat args=0847ef96]' in text
+        assert 'Search Chat History' not in text
+        assert 'RESEARCH-ONLY' not in text
+        assert 'Running the search.' in text
+
+    def test_keeps_non_slash_user_message_after_slash_command(self):
+        messages = [
+            {
+                'role': 'user',
+                'content': (
+                    '<command-message>commit</command-message>\n'
+                    '<command-name>/commit</command-name>\n'
+                    '<command-args></command-args>'
+                ),
+                'timestamp': 'T1', 'epoch': 0,
+            },
+            {
+                'role': 'user',
+                'content': 'skill prompt body here',
+                'timestamp': 'T2', 'epoch': 0,
+            },
+            {
+                'role': 'user',
+                'content': 'genuine follow-up message from the user',
+                'timestamp': 'T3', 'epoch': 0,
+            },
+        ]
+        lines = build_extraction_lines(messages)
+        text = '\n'.join(lines)
+        assert '[SLASH-COMMAND: /commit]' in text
+        assert 'skill prompt body' not in text
+        assert 'genuine follow-up message' in text
+
 
 class TestJsonOutput:
     def test_search_results_json(self):

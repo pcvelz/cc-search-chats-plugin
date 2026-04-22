@@ -7,9 +7,38 @@ on malformed or unexpected input.
 """
 
 import json
+import re
 from typing import Iterator
 
 from search_chat.types import CompactBoundary, ParsedMessage
+
+
+_SLASH_NAME_RE = re.compile(r"<command-name>([^<]*)</command-name>", re.IGNORECASE)
+_SLASH_ARGS_RE = re.compile(r"<command-args>(.*?)</command-args>", re.IGNORECASE | re.DOTALL)
+
+
+def _collapse_slash_command(text: str) -> str | None:
+    """If text is a Claude Code slash-command user message, collapse to a single
+    informational line. Returns None if the text is not a slash-command invocation.
+
+    Slash-command user messages from Claude Code wrap the invocation in
+    <command-message>, <command-name>, and <command-args> tags followed by the
+    skill's full prompt text. That prompt text is noise when re-read from an
+    archive — it's not user-authored, and re-injecting it pollutes context and
+    creates a prompt-injection surface. Keep only what the user actually typed.
+    """
+    stripped = text.lstrip()
+    if not stripped.startswith("<command-"):
+        return None
+    name_match = _SLASH_NAME_RE.search(stripped)
+    if not name_match:
+        return None
+    name = name_match.group(1).strip()
+    args_match = _SLASH_ARGS_RE.search(stripped)
+    args = args_match.group(1).strip() if args_match else ""
+    if args:
+        return f"[SLASH-COMMAND: {name} args={args}]"
+    return f"[SLASH-COMMAND: {name}]"
 
 
 def content_to_text(content) -> str:
@@ -17,11 +46,15 @@ def content_to_text(content) -> str:
 
     Handles string content, lists of typed blocks (text/tool_use),
     None, and any other type via a fallback str() truncation.
+
+    Slash-command user messages are collapsed to a single marker line —
+    the expanded skill prompt is not user-authored content.
     """
     if content is None:
         return ""
     if isinstance(content, str):
-        return content
+        collapsed = _collapse_slash_command(content)
+        return collapsed if collapsed is not None else content
     if isinstance(content, list):
         parts = []
         for item in content:
@@ -35,7 +68,9 @@ def content_to_text(content) -> str:
             elif item_type == "tool_use":
                 name = item.get("name", "")
                 parts.append(f"[TOOL:{name}]")
-        return "\n".join(parts)
+        joined = "\n".join(parts)
+        collapsed = _collapse_slash_command(joined)
+        return collapsed if collapsed is not None else joined
     return str(content)[:500]
 
 

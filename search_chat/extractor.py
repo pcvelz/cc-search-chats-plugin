@@ -5,6 +5,8 @@ XML tags sanitized, periodic reminders inserted.
 """
 import re
 
+from search_chat.parser import _collapse_slash_command
+
 
 def sanitize_xml(text: str) -> str:
     """Neutralize XML/HTML tags in extracted content.
@@ -108,6 +110,35 @@ def _compile_query(query: str | None) -> re.Pattern | None:
         return re.compile(re.escape(query), re.IGNORECASE)
 
 
+def _collapse_slash_command_messages(messages: list[dict]) -> list[dict]:
+    """Replace each two-message slash-command invocation with a single marker.
+
+    Claude Code records a slash command as two consecutive user messages:
+    (1) the `<command-*>` tags and (2) the skill's expanded prompt body.
+    Neither is user-authored — the user only typed "/name args". Keep a
+    single marker line so investigation output carries the intent without
+    re-injecting hundreds of lines of skill prompt text.
+    """
+    result: list[dict] = []
+    i = 0
+    while i < len(messages):
+        msg = messages[i]
+        marker = _collapse_slash_command(msg['content']) if msg['role'] == 'user' else None
+        if marker is not None:
+            collapsed = dict(msg)
+            collapsed['content'] = marker
+            result.append(collapsed)
+            # Drop the immediately-following user message (the skill prompt body).
+            if i + 1 < len(messages) and messages[i + 1]['role'] == 'user':
+                i += 2
+            else:
+                i += 1
+            continue
+        result.append(msg)
+        i += 1
+    return result
+
+
 def build_extraction_lines(
     messages: list[dict],
     query: str | None = None,
@@ -122,6 +153,7 @@ def build_extraction_lines(
     - Query + context_lines > 0: context mode (N messages around matches)
     - Query + context_lines == 0: filter mode (only matching messages)
     """
+    messages = _collapse_slash_command_messages(messages)
     query_re = _compile_query(query)
     output_lines: list[str] = []
 
