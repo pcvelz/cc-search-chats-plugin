@@ -44,7 +44,7 @@ Search through previous Claude Code chat sessions and extract conversation conte
 ## Exact Command to Run
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/commands/search-chat.sh $ARGUMENTS
+bash ${CLAUDE_PLUGIN_ROOT}/commands/search-chat.sh "$ARGUMENTS"
 ```
 
 ## Instructions
