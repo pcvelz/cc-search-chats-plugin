@@ -68,7 +68,8 @@ def main():
 
 def _handle_extract(args, conn, project_dir, project_dir_name):
     if args.exclude_session and args.extract_session.startswith(args.exclude_session):
-        print(f'Session {args.extract_session} is excluded (current session).')
+        print(f'Session {args.extract_session} is excluded (current session). '
+              f'To extract the session you are running in, re-run with --include-self.')
         return
 
     file_path, resolved_id = resolve_session_id(args.extract_session, project_dir)

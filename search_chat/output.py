@@ -66,8 +66,9 @@ def format_session_list_text(items: list, scope_label: str) -> str:
         lines.append(f"   {it.title}")
         lines.append(f"   Full ID: {it.session_id}")
         lines.append("")
-    lines.append("These are candidates only — confirm the right one with the user, then")
-    lines.append("hand off: /summarize-chat <id> (recap) or /search-chat <id> (content).")
+    lines.append("If one candidate clearly matches, continue in the same turn:")
+    lines.append("/summarize-chat <id> (recap/question) or /search-chat <id> (content).")
+    lines.append("Confirm with the user only when the candidates are genuinely ambiguous.")
     return "\n".join(lines)
 
 

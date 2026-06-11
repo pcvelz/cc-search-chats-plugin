@@ -191,6 +191,13 @@ Chat sessions are stored in `~/.claude/projects/` as JSONL files. This plugin:
 
 ## Release Notes
 
+### [v2.0.6](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v2.0.6) - Autonomous chat-recall chain
+
+- `/find-chat` now flows directly into `/summarize-chat` or `/search-chat` in the same turn when a candidate clearly matches — no unnecessary confirmation pause
+- Updated command descriptions to reflect the three-step chain (find → recap/extract)
+- Session list footer updated to guide toward autonomous flow
+- `/summarize-chat` resolves missing session IDs via `/find-chat` itself instead of prompting the user to type a second command
+
 ### [v2.0.5](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v2.0.5) - /find-chat session bridge
 
 - New `/find-chat` command: a natural-language-provoked bridge that identifies WHICH past session you mean (id, date, opening prompt) and hands off to `/summarize-chat` or `/search-chat`.

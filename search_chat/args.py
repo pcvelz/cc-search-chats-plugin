@@ -112,6 +112,24 @@ def parse_args(argv: list[str] | None = None) -> Args:
     args.query = ' '.join(query_parts)
     args.original_query = args.query
 
+    # Self-heal: an ID-shaped query in --list mode is a misrouted extraction
+    # (e.g. an agent invoking /find-chat with a session id + --tail). The list
+    # matches topic words against session openings, so an id can never match —
+    # flip to extraction instead of returning a useless empty list. Short bare
+    # 8-hex only flips when extraction-shaped flags accompany it, so a genuine
+    # hex-looking topic word still lists.
+    if args.list_mode and args.query and not args.extract_session:
+        words = args.query.split()
+        first = words[0]
+        extractish = args.tail_lines > 0 or any(
+            w in ('--tail', '--max-lines', '--context', '--extract-matches') for w in words[1:]
+        )
+        if UUID_FULL.match(first) or UUID_PARTIAL.match(first) or (UUID_SHORT.match(first) and extractish):
+            args.list_mode = False
+            print('Note: query is a session id, not a topic — switched --list to extraction '
+                  '(--list takes topic words; session ids go straight to extraction).',
+                  file=sys.stderr)
+
     if args.query and not args.extract_session and not args.list_mode:
         words = args.query.split()
         first = words[0] if words else ''

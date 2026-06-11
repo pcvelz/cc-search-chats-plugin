@@ -1,5 +1,5 @@
 ---
-description: "Summarize OR answer a question about a past Claude Code session by ID. Use when the user wants a recap of a prior session, a quick readout of what happened before, a digest of an earlier chat, OR asks a specific question about a past session. Accepts short 8-char prefix (e.g. 86017339) or full UUID, optionally followed by a follow-up question. Default: Haiku (fast, cheap, detail sweet spot). Flags: --detailed (Sonnet, exhaustive), --eu (scw 120 Devstral, GDPR-safe offline hedge)."
+description: "Recap step of the chat-recall chain: summarize OR answer a question about a past Claude Code session by ID. Use when the user wants a recap of a prior session, a quick readout of what happened before, a digest of an earlier chat, OR asks a specific question about a past session — 'what was that session doing', 'what did it plan to do next', 'what were these changes for'. Requires a session ID: short 8-char prefix (e.g. 86017339) or full UUID, optionally followed by the question. No ID? Run /find-chat first (step 1 of the chain) — it resolves the session and flows straight back here. Default: Haiku (fast, cheap, detail sweet spot). Flags: --detailed (Sonnet, exhaustive), --eu (scw 120 Devstral, GDPR-safe offline hedge)."
 allowed-tools: ["Task", "Bash(bash:*)", "Read"]
 ---
 
@@ -17,7 +17,7 @@ Hard rules:
 - **Do NOT run `bash search-chat.sh` yourself.** Ever. Under any circumstance.
 - **Do NOT read the tmp file the subagent creates.** Ever.
 - **Do NOT open any `.jsonl` file under `~/.claude/projects/`** to "verify" anything.
-- If `$ARGUMENTS` has no session ID, stop and ask the user for one. Do not try to guess from context.
+- If `$ARGUMENTS` has no session ID, do not guess one from context — resolve it via `/find-chat` (see step 1 below).
 
 If you catch yourself writing a `Bash(...)` call before the `Task(...)` call — stop and delete it. The `Task` dispatch is the *only* tool call you should make for this command.
 
@@ -29,7 +29,7 @@ If you catch yourself writing a `Bash(...)` call before the `Task(...)` call —
 - **Follow-up question** (optional) — **ALL remaining natural-language text after the session ID.** This is the user's actual request and it is the WHOLE POINT of the invocation. Capture it verbatim. If there is no trailing prose, the question is the literal string `(none)`.
 - **Flag** — `--detailed` → Sonnet · `--eu` → scw 120 · *(none)* → Haiku (default). Flags are not part of the question.
 
-If you cannot find a session ID, do NOT guess from conversation context. Instead, suggest the user run `/find-chat` first to identify the session, then come back here with the ID.
+If you cannot find a session ID, do NOT guess from conversation context. Invoke `/find-chat` yourself to identify the session (it lists candidates by topic), then re-enter this flow with the resolved ID — the user should not have to type a second command.
 
 ### 2. Dispatch the summarizer subagent
 

@@ -1,5 +1,5 @@
 ---
-description: "Search the CONTENT of previous Claude Code sessions and extract conversation text — full-text/keyword search across transcripts, find where we talked about a topic, what we discussed, what was the fix, the exact error, remember that bug, pull quotes from a past chat. Paste a Session ID from your status bar to extract that session (shows last 200 lines by default). To first identify WHICH session you mean (without a topic deep in the transcript), use /find-chat — it lists candidate sessions and hands you an ID."
+description: "Extraction step of the chat-recall chain: search the CONTENT of previous Claude Code sessions and extract conversation text — full-text/keyword search across transcripts, find where we talked about a topic, what we discussed, what was the fix, the exact error, which session touched this file or made these changes, remember that bug, pull quotes from a past chat. Use when a session ID is known (paste it from the status bar, or arrive here from /find-chat) — shows last 200 lines by default — or when searching all transcripts by topic. No session ID and no searchable topic? Start at /find-chat (step 1 of the chain): it resolves the session and flows back here."
 allowed-tools: ["Bash(${CLAUDE_PLUGIN_ROOT}/commands/search-chat.sh:*)"]
 ---
 
