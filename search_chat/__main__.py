@@ -14,10 +14,13 @@ from search_chat.extractor import (
 )
 from search_chat.finder import (
     encode_project_path, find_current_session, get_project_dir,
-    list_session_files, resolve_session_id, CLAUDE_PROJECTS_BASE,
+    list_all_session_files, list_session_files, resolve_session_id,
+    CLAUDE_PROJECTS_BASE,
 )
+from search_chat.lister import build_list_items
 from search_chat.output import (
     format_extraction_json, format_search_results_json, format_search_results_text,
+    format_session_list_json, format_session_list_text,
 )
 from search_chat.types import SessionFile
 
@@ -39,6 +42,10 @@ def main():
 
     if args.list_results_session:
         _handle_list_results(args, project_dir)
+        return
+
+    if args.list_mode:
+        _handle_find(args, project_dir, project_dir_name)
         return
 
     if not args.query and not args.extract_session:
@@ -160,6 +167,27 @@ def _handle_search(args, conn, project_dir, project_dir_name):
                     print(line)
                 print(format_archive_footer())
                 print()
+
+
+def _handle_find(args, project_dir, project_dir_name):
+    if args.all_projects:
+        session_files = list_all_session_files(include_agents=args.include_agents)
+    else:
+        session_files = list_session_files(project_dir, include_agents=args.include_agents)
+
+    if args.exclude_session:
+        session_files = [
+            s for s in session_files
+            if not s.session_id.startswith(args.exclude_session)
+        ]
+
+    items = build_list_items(session_files, topic=args.query, limit=args.limit)
+
+    scope_label = 'all projects' if args.all_projects else project_dir_name
+    if args.json:
+        print(format_session_list_json(items))
+    else:
+        print(format_session_list_text(items, scope_label))
 
 
 def _handle_read_result(args, project_dir):

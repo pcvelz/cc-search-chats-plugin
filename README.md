@@ -56,6 +56,19 @@ Just tell Claude what you need. The plugin handles the rest.
 
 > "Look for any session mentioning **502 gateway** errors"
 
+### `/find-chat` — identify a past session
+
+Use when you refer to an earlier chat but don't have its session ID:
+
+- *"find the last chat where we discussed the staging deploy"*
+- *"which session was the redis bug in?"*
+- *"what did we work on yesterday?"* (add "across all projects" to widen)
+
+It returns a short list of candidate sessions (id, date, opening prompt),
+scoped to the current project by default, then nudges you toward
+`/summarize-chat <id>` (recap) or `/search-chat <id>` (content). It does not
+print transcript content itself — it's the *find* step before those.
+
 ### Recalling a Specific Session
 
 > "What did we talk about in session **bbfba5e4**?"
@@ -117,6 +130,7 @@ The plugin figures out what you mean from context:
 | `--limit N` | Maximum sessions to return | 10 |
 | `--project PATH` | Search in specific project | current |
 | `--all-projects` | Search across all projects | current only |
+| `--list` | List recent sessions (id, date, opening prompt) — powers `/find-chat` | off |
 | `--extract ID` | Extract specific session | - |
 | `--extract-matches` | Auto-extract top matches | false |
 | `--extract-limit N` | Number to extract | 5 |
@@ -176,6 +190,12 @@ Chat sessions are stored in `~/.claude/projects/` as JSONL files. This plugin:
 4. Index updates incrementally when session files change
 
 ## Release Notes
+
+### [v2.0.5](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v2.0.5) - /find-chat session bridge
+
+- New `/find-chat` command: a natural-language-provoked bridge that identifies WHICH past session you mean (id, date, opening prompt) and hands off to `/summarize-chat` or `/search-chat`.
+- Scoped to the current project by default; say "all projects" to widen. Optional shallow topic filter over each session's opening messages.
+- New `--list` mode on the search engine powering the command; trimmed overlapping trigger phrases from `/search-chat` so the two commands no longer compete for "which session?" intents.
 
 ### [v2.0.4](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v2.0.4) - Fix shell parse error with special characters in queries
 

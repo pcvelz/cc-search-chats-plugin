@@ -96,3 +96,43 @@ class TestFindCurrentSession:
         empty = tmp_path / 'empty'
         empty.mkdir()
         assert find_current_session(empty) is None
+
+
+class TestListAllSessionFiles:
+    def test_collects_across_projects(self, tmp_path, monkeypatch):
+        import search_chat.finder as finder
+        from search_chat.finder import list_all_session_files
+        base = tmp_path / "projects"
+        (base / "-proj-a").mkdir(parents=True)
+        (base / "-proj-b").mkdir(parents=True)
+        (base / "-proj-a" / "aaaaaaaa-1111-2222-3333-444444444444.jsonl").write_text("{}")
+        (base / "-proj-b" / "bbbbbbbb-5555-6666-7777-888888888888.jsonl").write_text("{}")
+        monkeypatch.setattr(finder, "CLAUDE_PROJECTS_BASE", base)
+        sessions = list_all_session_files()
+        ids = {s.session_id for s in sessions}
+        assert ids == {
+            "aaaaaaaa-1111-2222-3333-444444444444",
+            "bbbbbbbb-5555-6666-7777-888888888888",
+        }
+
+    def test_sorted_by_mtime_descending(self, tmp_path, monkeypatch):
+        import time
+        import search_chat.finder as finder
+        from search_chat.finder import list_all_session_files
+        base = tmp_path / "projects"
+        (base / "-proj-a").mkdir(parents=True)
+        (base / "-proj-b").mkdir(parents=True)
+        older = base / "-proj-a" / "aaaaaaaa-1111-2222-3333-444444444444.jsonl"
+        newer = base / "-proj-b" / "bbbbbbbb-5555-6666-7777-888888888888.jsonl"
+        older.write_text("{}")
+        time.sleep(0.01)
+        newer.write_text("{}")
+        monkeypatch.setattr(finder, "CLAUDE_PROJECTS_BASE", base)
+        sessions = list_all_session_files()
+        assert sessions[0].session_id == "bbbbbbbb-5555-6666-7777-888888888888"
+
+    def test_missing_base_returns_empty(self, tmp_path, monkeypatch):
+        import search_chat.finder as finder
+        from search_chat.finder import list_all_session_files
+        monkeypatch.setattr(finder, "CLAUDE_PROJECTS_BASE", tmp_path / "nope")
+        assert list_all_session_files() == []

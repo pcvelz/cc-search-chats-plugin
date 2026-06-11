@@ -1,4 +1,5 @@
 """Text and JSON output formatters. Pure functions — no I/O."""
+import datetime
 import json
 
 
@@ -45,3 +46,40 @@ def format_extraction_json(session_id: str, messages: list[dict], epochs: list[d
     if epochs:
         result['epochs'] = [dict(e) for e in epochs]
     return json.dumps(result, indent=2, ensure_ascii=False)
+
+
+def _format_mtime(mtime: float) -> str:
+    """Render an epoch mtime as a local 'YYYY-MM-DD HH:MM' string."""
+    return datetime.datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M")
+
+
+def format_session_list_text(items: list, scope_label: str) -> str:
+    """Render candidate sessions for /find-chat. Thin: id, date, opening prompt."""
+    if not items:
+        return (
+            f"No candidate sessions found ({scope_label}).\n"
+            "Tip: broaden with --all-projects, or use /search-chat for full-text search."
+        )
+    lines = [f"Candidate sessions ({scope_label}) — newest first:", ""]
+    for i, it in enumerate(items, 1):
+        lines.append(f"{i}. [{it.session_id[:8]}] {_format_mtime(it.mtime)}")
+        lines.append(f"   {it.title}")
+        lines.append(f"   Full ID: {it.session_id}")
+        lines.append("")
+    lines.append("These are candidates only — confirm the right one with the user, then")
+    lines.append("hand off: /summarize-chat <id> (recap) or /search-chat <id> (content).")
+    return "\n".join(lines)
+
+
+def format_session_list_json(items: list) -> str:
+    """JSON form of the candidate list."""
+    clean = [
+        {
+            "session_id": it.session_id,
+            "title": it.title,
+            "project_dir": it.project_dir,
+            "timestamp": _format_mtime(it.mtime),
+        }
+        for it in items
+    ]
+    return json.dumps(clean, indent=2, ensure_ascii=False)

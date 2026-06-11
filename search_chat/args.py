@@ -8,6 +8,12 @@ UUID_FULL = re.compile(r'^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-
 UUID_PARTIAL = re.compile(r'^[a-f0-9]{8}-[a-f0-9]{1,4}[a-f0-9-]*$')
 UUID_SHORT = re.compile(r'^[a-f0-9]{8}$')
 
+# Embedded full-UUID detection — safe because full UUIDs never collide with prose
+EMBEDDED_UUID_FULL = re.compile(
+    r'[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}',
+    re.IGNORECASE,
+)
+
 
 @dataclass
 class Args:
@@ -21,6 +27,7 @@ class Args:
     tail_lines: int = 0
     project_path: str = ''
     all_projects: bool = False
+    list_mode: bool = False
     include_agents: bool = False
     exclude_session: str = ''
     include_self: bool = False
@@ -30,6 +37,24 @@ class Args:
     list_results_session: str = ''
     auto_detected_uuid: bool = False
     original_query: str = ''
+
+
+def _extract_embedded_uuid(text: str) -> str:
+    """Scan text for an embedded full UUID. Return empty if none."""
+    m = EMBEDDED_UUID_FULL.search(text)
+    if m:
+        return m.group(0).lower()
+    return ''
+
+
+def _clean_query_after_uuid_removal(query: str, uuid: str) -> str:
+    """Remove UUID from query and discard status-bar chrome around it."""
+    cleaned = query.replace(uuid, ' ', 1)
+    # Split on status-bar separator runs and drop common single-letter chrome labels
+    tokens = re.split(r'[\s|:\-\[\]█░]+', cleaned)
+    noise = {'s', 'c', 'd', 'm'}
+    tokens = [t for t in tokens if t and t.lower() not in noise]
+    return ' '.join(tokens)
 
 
 def parse_args(argv: list[str] | None = None) -> Args:
@@ -63,6 +88,8 @@ def parse_args(argv: list[str] | None = None) -> Args:
             args.project_path = argv[i + 1]; i += 2
         elif arg == '--all-projects':
             args.all_projects = True; i += 1
+        elif arg == '--list':
+            args.list_mode = True; i += 1
         elif arg == '--include-agents':
             args.include_agents = True; i += 1
         elif arg == '--exclude-session' and i + 1 < len(argv):
@@ -85,9 +112,14 @@ def parse_args(argv: list[str] | None = None) -> Args:
     args.query = ' '.join(query_parts)
     args.original_query = args.query
 
-    if args.query and not args.extract_session:
+    if args.query and not args.extract_session and not args.list_mode:
         words = args.query.split()
         first = words[0] if words else ''
+        # First token is a session ID (full, partial, or short 8-hex). Short bare
+        # hex is accepted even with trailing words — that powers the documented
+        # `search-chat <short-id> <filter>` form. A non-session 8-hex collision
+        # (e.g. "deadbeef is slang") self-heals: __main__ falls back to a text
+        # search of original_query when the ID resolves to no session.
         if UUID_FULL.match(first) or UUID_PARTIAL.match(first) or UUID_SHORT.match(first):
             args.extract_session = first
             args.auto_detected_uuid = True
@@ -119,6 +151,17 @@ def parse_args(argv: list[str] | None = None) -> Args:
                     new_query_parts.append(w); j += 1
             args.query = ' '.join(new_query_parts)
 
+    # Second chance: embedded full UUID inside messy text (e.g. status bar copy-paste).
+    # Short UUIDs are NOT scanned here to avoid false positives in prose.
+    if args.query and not args.extract_session and not args.list_mode:
+        embedded = _extract_embedded_uuid(args.query)
+        if embedded:
+            args.extract_session = embedded
+            args.auto_detected_uuid = True
+            if args.tail_lines == 0:
+                args.tail_lines = 200
+            args.query = _clean_query_after_uuid_removal(args.query, embedded)
+
     return args
 
 
@@ -132,6 +175,7 @@ Search Options:
   --limit N          Maximum sessions to return (default: 10)
   --project PATH     Search in specific project (default: current directory)
   --all-projects     Search across all projects
+  --list             List recent sessions (id, date, opening prompt) instead of searching
   --include-agents   Include subagent conversations (default: off)
   --include-self     Include current session in results
   --exclude-session ID  Exclude a specific session from results

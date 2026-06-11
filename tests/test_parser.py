@@ -191,3 +191,51 @@ class TestParseSession:
     def test_generator_does_not_accumulate(self, sample_session_path):
         gen = parse_session(sample_session_path)
         assert hasattr(gen, '__next__')
+
+
+class TestExtractSessionTitle:
+    def test_returns_first_user_prompt(self, sample_session_path):
+        from search_chat.parser import extract_session_title
+        title = extract_session_title(sample_session_path)
+        assert title == "How do I deploy to staging?"
+
+    def test_truncates_long_prompt(self, tmp_path):
+        import json
+        from search_chat.parser import extract_session_title
+        long_text = "deploy " * 50  # 350 chars
+        f = tmp_path / "long.jsonl"
+        f.write_text(json.dumps({
+            "type": "user", "uuid": "u1", "timestamp": "T",
+            "message": {"role": "user", "content": long_text},
+        }) + "\n")
+        title = extract_session_title(str(f), max_chars=20)
+        assert len(title) <= 20
+        assert title.endswith("...")
+
+    def test_skips_empty_tool_result_turns(self, tmp_path):
+        import json
+        from search_chat.parser import extract_session_title
+        lines = [
+            json.dumps({"type": "user", "uuid": "u1", "timestamp": "T",
+                        "message": {"role": "user",
+                                    "content": [{"type": "tool_result", "content": "x"}]}}),
+            json.dumps({"type": "user", "uuid": "u2", "timestamp": "T",
+                        "message": {"role": "user", "content": "the real first prompt"}}),
+        ]
+        f = tmp_path / "skip.jsonl"
+        f.write_text("\n".join(lines) + "\n")
+        assert extract_session_title(str(f)) == "the real first prompt"
+
+    def test_no_user_message(self, tmp_path):
+        import json
+        from search_chat.parser import extract_session_title
+        f = tmp_path / "no_user.jsonl"
+        f.write_text(json.dumps({
+            "type": "assistant", "uuid": "a1", "timestamp": "T",
+            "message": {"role": "assistant", "content": [{"type": "text", "text": "hi"}]},
+        }) + "\n")
+        assert extract_session_title(str(f)) == "(no user prompt)"
+
+    def test_missing_file_does_not_raise(self):
+        from search_chat.parser import extract_session_title
+        assert extract_session_title("/nonexistent/x.jsonl") == "(no user prompt)"

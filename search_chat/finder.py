@@ -109,3 +109,19 @@ def resolve_session_id(
                     return str(f), f.stem
 
     return None, f'Session not found: {session_id}'
+
+
+def list_all_session_files(include_agents: bool = False) -> list[SessionFile]:
+    """List session files across ALL projects, sorted by mtime descending.
+
+    Iterates every project directory under CLAUDE_PROJECTS_BASE and concatenates
+    each one's list_session_files result. Returns [] if the base is missing.
+    """
+    if not CLAUDE_PROJECTS_BASE.is_dir():
+        return []
+    results: list[SessionFile] = []
+    for proj in CLAUDE_PROJECTS_BASE.iterdir():
+        if proj.is_dir():
+            results.extend(list_session_files(proj, include_agents=include_agents))
+    results.sort(key=lambda s: s.mtime, reverse=True)
+    return results

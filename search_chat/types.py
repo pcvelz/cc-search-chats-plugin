@@ -35,3 +35,15 @@ class SearchHit(NamedTuple):
     snippet: str
     timestamp: str
     score: float = 0.0
+
+
+class SessionListItem(NamedTuple):
+    """One candidate session for the /find-chat bridge.
+
+    Carries only identifying metadata — never transcript content. `mtime` is a
+    float epoch; the output formatter renders it to a human date.
+    """
+    session_id: str
+    title: str
+    project_dir: str
+    mtime: float

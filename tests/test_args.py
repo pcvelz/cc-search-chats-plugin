@@ -85,3 +85,75 @@ class TestParseArgs:
         with pytest.raises(SystemExit) as exc_info:
             parse_args(['--help'])
         assert exc_info.value.code == 0
+
+    def test_embedded_full_uuid_in_status_bar_text(self):
+        args = parse_args(['S: a1b2c3d4-1234-5678-abcd-ef0123456789 | C: [█░░░] 265k/1M | D5/7: On Pace'])
+        assert args.extract_session == 'a1b2c3d4-1234-5678-abcd-ef0123456789'
+        assert args.query == '265k/1M D5/7 On Pace'
+        assert args.tail_lines == 200
+
+    def test_embedded_full_uuid_in_messy_text(self):
+        args = parse_args(['Session: a1b2c3d4-1234-5678-abcd-ef0123456789 | done'])
+        assert args.extract_session == 'a1b2c3d4-1234-5678-abcd-ef0123456789'
+        assert args.query == 'Session done'
+        assert args.tail_lines == 200
+
+    def test_embedded_full_uuid_with_remaining_filter_text(self):
+        args = parse_args(['S: a1b2c3d4-1234-5678-abcd-ef0123456789 redis cache'])
+        assert args.extract_session == 'a1b2c3d4-1234-5678-abcd-ef0123456789'
+        assert args.query == 'redis cache'
+
+    def test_no_embedded_short_uuid_scan_in_prose(self):
+        # A bare 8-hex token that is NOT the first word must not be auto-detected:
+        # the embedded second-chance scan only matches FULL UUIDs, never short hex.
+        args = parse_args(['the deadc0de bug in module x'])
+        assert args.extract_session == ''
+        assert args.query == 'the deadc0de bug in module x'
+        assert args.auto_detected_uuid is False
+
+    def test_short_uuid_with_filter_text(self):
+        # Documented form (README: `search-chat bbfba5e4 chrome tag`): a short ID
+        # as the first token still extracts, with trailing words as the filter.
+        args = parse_args(['bbfba5e4', 'chrome', 'tag'])
+        assert args.extract_session == 'bbfba5e4'
+        assert args.query == 'chrome tag'
+
+    def test_embedded_uuid_does_not_override_explicit_extract(self):
+        # Explicit --extract must never be overridden by auto-detection.
+        args = parse_args(['--extract', 'sess-123', 'some a1b2c3d4 text'])
+        assert args.extract_session == 'sess-123'
+        assert args.query == 'some a1b2c3d4 text'
+
+    def test_embedded_full_uuid_with_explicit_tail_flag(self):
+        args = parse_args(['S: a1b2c3d4-1234-5678-abcd-ef0123456789 | C: [█░░░] 265k/1M | D5/7: On Pace', '--tail', '200'])
+        assert args.extract_session == 'a1b2c3d4-1234-5678-abcd-ef0123456789'
+        assert args.tail_lines == 200
+        assert args.query == '265k/1M D5/7 On Pace'
+
+    def test_long_follow_up_preserved_after_full_uuid(self):
+        # Genuine follow-up words after a UUID must survive chrome-stripping.
+        args = parse_args(['Session: a1b2c3d4-1234-5678-abcd-ef0123456789 please summarize the caching discussion we had'])
+        assert args.extract_session == 'a1b2c3d4-1234-5678-abcd-ef0123456789'
+        assert args.query == 'Session please summarize the caching discussion we had'
+
+    def test_list_flag(self):
+        args = parse_args(['--list'])
+        assert args.list_mode is True
+        assert args.query == ''
+
+    def test_list_with_topic(self):
+        args = parse_args(['--list', 'staging', 'deploy'])
+        assert args.list_mode is True
+        assert args.query == 'staging deploy'
+
+    def test_list_all_projects(self):
+        args = parse_args(['--list', 'redis', '--all-projects'])
+        assert args.list_mode is True
+        assert args.all_projects is True
+        assert args.query == 'redis'
+
+    def test_list_does_not_autodetect_uuid(self):
+        args = parse_args(['--list', 'abcdef01'])
+        assert args.list_mode is True
+        assert args.extract_session == ''
+        assert args.query == 'abcdef01'

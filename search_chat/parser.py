@@ -142,3 +142,24 @@ def parse_session(file_path: str) -> Iterator["ParsedMessage | CompactBoundary"]
                     yield result
     except (FileNotFoundError, OSError):
         return
+
+
+def extract_session_title(file_path: str, max_chars: int = 100) -> str:
+    """Return the first real user prompt of a session as a one-line title.
+
+    Skips tool-result user turns (which parse to empty content) and lands on
+    the first user-authored message. Slash-command invocations are kept as
+    their collapsed [SLASH-COMMAND: ...] marker. Whitespace is collapsed and
+    the result truncated to max_chars (with a trailing '...' when truncated).
+    Returns '(no user prompt)' when the session has no user message. Never
+    raises — parse_session swallows file/parse errors.
+    """
+    for rec in parse_session(file_path):
+        if isinstance(rec, ParsedMessage) and rec.role == "user":
+            text = " ".join(rec.content.split())
+            if not text:
+                continue
+            if len(text) > max_chars:
+                text = text[: max_chars - 3].rstrip() + "..."
+            return text
+    return "(no user prompt)"
