@@ -1,1 +1,4 @@
 .claude/
+
+# Runtime session lock files (pid/procStart markers) — never track
+.in_use/
