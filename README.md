@@ -191,6 +191,11 @@ Chat sessions are stored in `~/.claude/projects/` as JSONL files. This plugin:
 
 ## Release Notes
 
+### [v2.0.7](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v2.0.7) - Session-ID extraction stub + runtime lock hygiene
+
+- Added `extract_session_stub.py` — pulls a session ID (full UUID or 8-char short form) out of messy text such as a status-bar copy-paste, groundwork for more forgiving session resolution
+- `.gitignore` now excludes runtime `.in_use/` lock files (pid/procStart markers) so they no longer dirty the working tree
+
 ### [v2.0.6](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v2.0.6) - Autonomous chat-recall chain
 
 - `/find-chat` now flows directly into `/summarize-chat` or `/search-chat` in the same turn when a candidate clearly matches — no unnecessary confirmation pause
