@@ -191,6 +191,11 @@ Chat sessions are stored in `~/.claude/projects/` as JSONL files. This plugin:
 
 ## Release Notes
 
+### [v2.0.8](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v2.0.8) - Status-bar copy-paste: extract short session IDs from messy text
+
+- Auto-detect short 8-hex session IDs embedded in status-bar chrome (e.g. `Balanced | S: a01d8ea3`) — no more accidental list overviews when pasting from ccstatusline
+- Chrome heuristic looks for `|`, `[`, `]`, single-letter labels, and `:` among preceding tokens to avoid false positives in natural prose like "the deadc0de bug"
+
 ### [v2.0.7](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v2.0.7) - Session-ID extraction stub + runtime lock hygiene
 
 - Added `extract_session_stub.py` — pulls a session ID (full UUID or 8-char short form) out of messy text such as a status-bar copy-paste, groundwork for more forgiving session resolution
