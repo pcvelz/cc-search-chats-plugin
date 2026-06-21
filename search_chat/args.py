@@ -180,6 +180,39 @@ def parse_args(argv: list[str] | None = None) -> Args:
                 args.tail_lines = 200
             args.query = _clean_query_after_uuid_removal(args.query, embedded)
 
+    # Second chance: a short 8-hex token appears somewhere in the query (not just
+    # at position 0).  This catches status-bar copy-paste like "Balanced | S:
+    # a01d8ea3".  Only triggers when there is exactly one 8-hex token AND the
+    # surrounding tokens look like status-bar chrome (pipes, brackets, single-
+    # letter labels) rather than natural English prose.  This avoids false
+    # positives like "the deadc0de bug in module x".
+    if args.query and not args.extract_session and not args.list_mode:
+        hex_tokens = [w for w in args.query.split() if UUID_SHORT.match(w)]
+        if len(hex_tokens) == 1:
+            candidate = hex_tokens[0]
+            # Only promote if it's not the first token — that path is handled
+            # above (and handles trailing filter words).
+            if args.query.split()[0] != candidate:
+                idx = args.query.split().index(candidate)
+                # Look at surrounding tokens for chrome signals: |, [, ], single-
+                # letter labels (S:, C:, D5/7), colons.  If none found, assume
+                # prose and skip auto-detection.
+                before = args.query.split()[:idx]
+                has_chrome = any(
+                    t in ('|', '[', ']')
+                    or len(t) == 1
+                    or ':' in t
+                    for t in before
+                )
+                if has_chrome:
+                    args.extract_session = candidate
+                    args.auto_detected_uuid = True
+                    if args.tail_lines == 0:
+                        args.tail_lines = 200
+                    args.query = _clean_query_after_uuid_removal(args.query, candidate)
+                    if not args.query.strip():
+                        args.query = ''
+
     return args
 
 
