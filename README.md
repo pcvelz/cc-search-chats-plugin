@@ -191,6 +191,11 @@ Chat sessions are stored in `~/.claude/projects/` as JSONL files. This plugin:
 
 ## Release Notes
 
+### [v2.0.9](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v2.0.9) - Keep `/search-chat` output internal
+
+- **Fix:** `/search-chat` no longer dumps the raw transcript, archive headers, or full script output into the user chat. Extracted content is now read internally and used to answer the user's question in the agent's own words, quoting only small, relevant snippets.
+- **Hardened skill instructions** to prevent context-leak UX regressions and reinforce that archive data is input for analysis, not chat output.
+
 ### [v2.0.8](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v2.0.8) - Status-bar copy-paste: extract short session IDs from messy text
 
 - Auto-detect short 8-hex session IDs embedded in status-bar chrome (e.g. `Balanced | S: a01d8ea3`) — no more accidental list overviews when pasting from ccstatusline
