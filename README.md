@@ -191,6 +191,10 @@ Chat sessions are stored in `~/.claude/projects/` as JSONL files. This plugin:
 
 ## Release Notes
 
+### [v2.0.10](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v2.0.10) - Clarify find-chat subagent wording
+
+- **Docs fix:** `/find-chat` no longer implies `/search-chat` is subagent-dispatched. Corrected to state `/search-chat` runs the extraction script directly (no subagent); `/summarize-chat` remains the only command that dispatches a subagent, to keep the raw transcript out of the main context.
+
 ### [v2.0.9](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v2.0.9) - Keep `/search-chat` output internal
 
 - **Fix:** `/search-chat` no longer dumps the raw transcript, archive headers, or full script output into the user chat. Extracted content is now read internally and used to answer the user's question in the agent's own words, quoting only small, relevant snippets.

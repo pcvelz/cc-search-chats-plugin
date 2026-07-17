@@ -14,9 +14,10 @@ allowed-tools: ["Bash(${CLAUDE_PLUGIN_ROOT}/commands/search-chat.sh:*)"]
 >
 > **You MUST NOT** do the extraction work inline here: no `cat`/`grep`/reading
 > of `~/.claude/projects/` yourself, no pasting transcript content. This command
-> resolves the ID; extraction happens by invoking `/search-chat` or
-> `/summarize-chat` as their own commands, which run through their own
-> (subagent-dispatched) paths.
+> resolves the ID; extraction happens by invoking `/search-chat` (runs the
+> script directly, no subagent) or `/summarize-chat` (the one command that
+> dispatches a subagent, to keep the raw transcript out of the main context) as
+> their own commands.
 
 **Arguments provided:** $ARGUMENTS
 
