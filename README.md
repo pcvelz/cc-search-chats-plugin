@@ -191,6 +191,10 @@ Chat sessions are stored in `~/.claude/projects/` as JSONL files. This plugin:
 
 ## Release Notes
 
+### [v2.0.11](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v2.0.11) - Multiline query support
+
+- **Fix:** A `/search-chat` argument that arrives as one value with embedded newlines (session ID on the first line, filter phrase on later lines) no longer breaks the search. All interior whitespace — newlines, tabs, repeated spaces — is now collapsed to single spaces when the query is built, so a multiline text search reaches FTS5/regex cleanly instead of matching nothing.
+
 ### [v2.0.10](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v2.0.10) - Clarify find-chat subagent wording
 
 - **Docs fix:** `/find-chat` no longer implies `/search-chat` is subagent-dispatched. Corrected to state `/search-chat` runs the extraction script directly (no subagent); `/summarize-chat` remains the only command that dispatches a subagent, to keep the raw transcript out of the main context.

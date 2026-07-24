@@ -157,3 +157,30 @@ class TestParseArgs:
         assert args.list_mode is True
         assert args.extract_session == ''
         assert args.query == 'abcdef01'
+
+    def test_multiline_short_uuid_with_filter(self):
+        # The reported case: a slash arg arrives as one argv element with a
+        # newline separating the session id from a follow-up filter phrase.
+        args = parse_args(['fa920eeb\n\nit still xeems unresolved'])
+        assert args.extract_session == 'fa920eeb'
+        assert args.query == 'it still xeems unresolved'
+        assert args.tail_lines == 200
+
+    def test_multiline_full_uuid_with_filter(self):
+        args = parse_args(['abcdef01-2345-6789-abcd-ef0123456789\nredis cache'])
+        assert args.extract_session == 'abcdef01-2345-6789-abcd-ef0123456789'
+        assert args.query == 'redis cache'
+
+    def test_multiline_text_search_collapses_newline(self):
+        # A pure text search spanning lines must NOT carry a literal newline into
+        # the query — the newline would break FTS5 / regex matching downstream.
+        args = parse_args(['some multi\nline search'])
+        assert args.extract_session == ''
+        assert args.query == 'some multi line search'
+        assert '\n' not in args.query
+
+    def test_multiline_text_search_collapses_tabs_and_runs(self):
+        args = parse_args(['deploy\t\tto   staging\n\n'])
+        assert args.query == 'deploy to staging'
+        assert '\n' not in args.query
+        assert '\t' not in args.query

@@ -109,7 +109,13 @@ def parse_args(argv: list[str] | None = None) -> Args:
         else:
             query_parts.append(arg); i += 1
 
-    args.query = ' '.join(query_parts)
+    # Collapse ALL interior whitespace (newlines, tabs, repeated spaces) to single
+    # spaces. A slash-command argument can arrive as one argv element containing
+    # literal newlines (session id on line 1, follow-up filter on later lines); an
+    # embedded newline that survives into the query breaks FTS5 / regex matching
+    # downstream. str.split() with no args splits on any whitespace run and drops
+    # empties, normalizing the whole class in one place.
+    args.query = ' '.join(' '.join(query_parts).split())
     args.original_query = args.query
 
     # Self-heal: an ID-shaped query in --list mode is a misrouted extraction
