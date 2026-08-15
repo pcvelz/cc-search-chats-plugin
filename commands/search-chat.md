@@ -27,6 +27,8 @@ allowed-tools: ["Bash(${CLAUDE_PLUGIN_ROOT}/commands/search-chat.sh:*)"]
 
 Search through previous Claude Code chat sessions and extract conversation content.
 
+**Run directly in the main session — do NOT dispatch to a subagent.** The script is project-scoped by default and outputs ~30 lines for a listing search; use `--extract-matches --max-lines 200` when you need match content (caps output to a manageable size).
+
 **Tip:** Copy the Session ID from your ccstatusline status bar and paste it directly: `/search-chat a452c5fa` — shows the last 200 lines by default.
 
 **Arguments provided:** $ARGUMENTS
