@@ -191,6 +191,14 @@ Chat sessions are stored in `~/.claude/projects/` as JSONL files. This plugin:
 
 ## Release Notes
 
+### [v2.0.12](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v2.0.12) - Faster, wider search and renamed-session titles
+
+- **Feature:** `/find-chat` listings show a session's `/rename` title instead of its opening prompt, and topic words also match against that title.
+- **Fix:** `--all-projects` searches now index every project. Before, projects never searched from inside were invisible to cross-project search.
+- **Fix:** Queries with punctuation (`SWISS-2665`, `config.php`) no longer fall back to a slow Python scan. Words are phrase-quoted for FTS5, and alphabetic words of 4+ characters also match as prefixes (`deploy` finds `deployment`).
+- **Performance:** Dropped the per-call index integrity check, ranked aggregate results in one pass, and made the index append-only, so live sessions are extended instead of re-parsed. Typical searches go from seconds to well under a second.
+- **Index:** Schema v3. Existing v2 indexes are migrated in place, with no rebuild and no lost history. Sessions whose transcript was deleted stay searchable and extractable from the index for 30 days, marked as not resumable, then clean themselves up.
+
 ### [v2.0.11](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v2.0.11) - Multiline query support
 
 - **Fix:** A `/search-chat` argument that arrives as one value with embedded newlines (session ID on the first line, filter phrase on later lines) no longer breaks the search. All interior whitespace — newlines, tabs, repeated spaces — is now collapsed to single spaces when the query is built, so a multiline text search reaches FTS5/regex cleanly instead of matching nothing.

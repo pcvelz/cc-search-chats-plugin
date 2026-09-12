@@ -5,8 +5,8 @@ from pathlib import Path
 
 from search_chat.args import parse_args
 from search_chat.database import (
-    close_db, get_session_epochs, get_session_messages,
-    index_session, jit_reindex, open_db,
+    close_db, find_indexed_session, get_missing_since, get_session_epochs,
+    get_session_messages, index_session, jit_reindex, open_db, prune_missing,
 )
 from search_chat.engine import search
 from search_chat.extractor import (
@@ -55,7 +55,9 @@ def main():
 
     conn = open_db()
     try:
-        session_files = list_session_files(project_dir, include_agents=args.include_agents)
+        session_files = _session_files_to_index(args, project_dir)
+        all_scope = args.all_projects and not args.extract_session
+        prune_missing(conn, session_files, None if all_scope else {project_dir_name})
         jit_reindex(conn, session_files)
 
         if args.extract_session:
@@ -66,6 +68,21 @@ def main():
         close_db(conn)
 
 
+def _session_files_to_index(args, project_dir) -> list[SessionFile]:
+    """Session files the JIT index must cover before this invocation runs.
+
+    A cross-project search (--all-projects) must index every project: the
+    index is only ever filled lazily, so scoping the reindex to the current
+    project left any project never searched from inside invisible to
+    --all-projects (measured 2026-09-12: 40 of the 200 newest sessions, in 16
+    projects). Extraction stays project-scoped - it resolves and indexes the
+    one requested session itself.
+    """
+    if args.all_projects and not args.extract_session:
+        return list_all_session_files(include_agents=args.include_agents)
+    return list_session_files(project_dir, include_agents=args.include_agents)
+
+
 def _handle_extract(args, conn, project_dir, project_dir_name):
     if args.exclude_session and args.extract_session.startswith(args.exclude_session):
         print(f'Session {args.extract_session} is excluded (current session). '
@@ -74,14 +91,22 @@ def _handle_extract(args, conn, project_dir, project_dir_name):
 
     file_path, resolved_id = resolve_session_id(args.extract_session, project_dir)
     if file_path is None:
-        if args.auto_detected_uuid:
+        # Transcript gone from disk but still in the index (grace period):
+        # serve it from the index rather than failing a search hit.
+        indexed_id = find_indexed_session(conn, args.extract_session)
+        if indexed_id is not None:
+            print(f'Note: transcript for {indexed_id} is no longer on disk; '
+                  f'serving from the search index.', file=sys.stderr)
+            resolved_id = indexed_id
+        elif args.auto_detected_uuid:
             print(f"Note: '{args.extract_session}' did not match any session. Searching as text.", file=sys.stderr)
             args.query = args.original_query
             args.extract_session = ''
             _handle_search(args, conn, project_dir, project_dir_name)
             return
-        print(resolved_id, file=sys.stderr)
-        sys.exit(1)
+        else:
+            print(resolved_id, file=sys.stderr)
+            sys.exit(1)
 
     if resolved_id != args.extract_session:
         print(f'Resolved partial ID to: {resolved_id}', file=sys.stderr)
@@ -94,7 +119,7 @@ def _handle_extract(args, conn, project_dir, project_dir_name):
             args.query = ''
 
     messages = get_session_messages(conn, resolved_id)
-    if not messages:
+    if not messages and file_path is not None:
         sf = SessionFile(
             session_id=resolved_id, file_path=file_path,
             project_dir=project_dir_name,
@@ -134,6 +159,13 @@ def _handle_search(args, conn, project_dir, project_dir_name):
 
     results = search(conn, args.query, project_dir=dir_filter,
                      exclude_sessions=exclude, limit=args.limit)
+
+    # Flag hits whose transcript is gone (grace period) so the output never
+    # offers a `claude --resume` that cannot work.
+    missing = get_missing_since(conn, [r['session_id'] for r in results])
+    for r in results:
+        if r['session_id'] in missing:
+            r['missing_since'] = missing[r['session_id']]
 
     if args.json:
         print(format_search_results_json(results))

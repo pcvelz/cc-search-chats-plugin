@@ -2,7 +2,7 @@
 from pathlib import Path
 
 from search_chat.database import close_db, index_session, open_db
-from search_chat.engine import is_regex_query, normalize_query, search
+from search_chat.engine import build_fts_query, is_regex_query, normalize_query, search
 from search_chat.types import SessionFile
 
 
@@ -32,6 +32,36 @@ class TestQueryDetection:
     def test_quoted_phrase(self):
         assert is_regex_query('"exact phrase"') is False
 
+    def test_bare_dot_is_a_file_name_not_regex(self):
+        assert is_regex_query('config.php') is False
+        assert is_regex_query('search_chat.lister') is False
+
+
+class TestBuildFtsQuery:
+    def test_words_become_prefix_phrases(self):
+        assert build_fts_query('deploy staging') == '"deploy"* "staging"*'
+
+    def test_punctuation_is_quoted_not_syntax(self):
+        assert build_fts_query('SWISS-2665 cart') == '"SWISS-2665" "cart"*'
+        assert build_fts_query('config.php') == '"config.php"'
+        assert build_fts_query('foo:bar') == '"foo:bar"'
+
+    def test_identifiers_and_short_words_stay_exact(self):
+        assert build_fts_query('2665 db') == '"2665" "db"'
+        assert build_fts_query('abc') == '"abc"'
+
+    def test_empty_phrases_dropped(self):
+        assert build_fts_query('- redis ::') == '"redis"*'
+
+    def test_operators_preserved(self):
+        assert build_fts_query('redis OR cache') == '"redis"* OR "cache"*'
+
+    def test_wrapped_phrase_passthrough(self):
+        assert build_fts_query('"exact phrase"') == '"exact phrase"'
+
+    def test_embedded_quote_escaped(self):
+        assert build_fts_query('say"hi') == '"say""hi"'
+
 
 class TestNormalizeQuery:
     def test_bre_to_ere(self):
@@ -49,6 +79,41 @@ class TestSearch:
         assert len(results) >= 1
         assert results[0]['session_id'] == 'sess-aaa'
         assert results[0]['match_count'] >= 1
+        close_db(conn)
+
+    def test_hyphenated_query_hits_fts_not_syntax_error(self, tmp_db, sample_session_path, monkeypatch):
+        import search_chat.engine as engine
+        conn = open_db(tmp_db)
+        index_session(conn, _make_sf(sample_session_path, 'sess-aaa'))
+        monkeypatch.setattr(engine, '_regex_search',
+                            lambda *a, **k: (_ for _ in ()).throw(AssertionError('regex fallback used')))
+        # sample_session mentions "redis-cache"; unquoted, FTS5 would reject the '-'.
+        results = search(conn, 'redis-cache', project_dir='-tmp-test')
+        assert results and results[0]['session_id'] == 'sess-aaa'
+        close_db(conn)
+
+    def test_prefix_matches_longer_word(self, tmp_db, sample_session_path):
+        conn = open_db(tmp_db)
+        index_session(conn, _make_sf(sample_session_path, 'sess-aaa'))
+        # "deploy" must find "deployment" via FTS prefix, not substring fallback.
+        assert search(conn, 'deploy', project_dir='-tmp-test')
+        close_db(conn)
+
+    def test_infix_literal_fallback(self, tmp_db, sample_session_path):
+        conn = open_db(tmp_db)
+        index_session(conn, _make_sf(sample_session_path, 'sess-aaa'))
+        # "ploy" is no FTS token or prefix of one; only the substring fallback finds "deploy".
+        results = search(conn, 'ploy', project_dir='-tmp-test')
+        assert results and results[0]['session_id'] == 'sess-aaa'
+        assert 'ploy' in results[0]['snippet'].lower()
+        assert search(conn, 'ploy', project_dir='-other-project') == []
+        close_db(conn)
+
+    def test_literal_fallback_escapes_like_wildcards(self, tmp_db, sample_session_path):
+        conn = open_db(tmp_db)
+        index_session(conn, _make_sf(sample_session_path, 'sess-aaa'))
+        # A bare '%' would match everything under LIKE; escaped, it matches nothing here.
+        assert search(conn, '%', project_dir='-tmp-test') == []
         close_db(conn)
 
     def test_regex_fallback(self, tmp_db, sample_session_path):

@@ -7,6 +7,8 @@ on malformed or unexpected input.
 """
 
 import json
+import mmap
+import os
 import re
 from typing import Iterator
 
@@ -144,7 +146,14 @@ def parse_session(file_path: str) -> Iterator["ParsedMessage | CompactBoundary"]
         return
 
 
-def extract_session_title(file_path: str, max_chars: int = 100) -> str:
+def truncate_title(text: str, max_chars: int | None) -> str:
+    """Cut text to max_chars with a trailing '...'. None means no limit."""
+    if max_chars is not None and len(text) > max_chars:
+        return text[: max_chars - 3].rstrip() + "..."
+    return text
+
+
+def extract_session_title(file_path: str, max_chars: int | None = 100) -> str:
     """Return the first real user prompt of a session as a one-line title.
 
     Skips tool-result user turns (which parse to empty content) and lands on
@@ -159,7 +168,56 @@ def extract_session_title(file_path: str, max_chars: int = 100) -> str:
             text = " ".join(rec.content.split())
             if not text:
                 continue
-            if len(text) > max_chars:
-                text = text[: max_chars - 3].rstrip() + "..."
-            return text
+            return truncate_title(text, max_chars)
     return "(no user prompt)"
+
+
+_CUSTOM_TITLE_NEEDLE = b'"custom-title"'
+
+
+def _parse_custom_title_line(raw: bytes) -> str | None:
+    """Whitespace-collapsed customTitle of one JSONL line, or None if the line
+    is not a custom-title record (e.g. a message that merely mentions the
+    format)."""
+    try:
+        data = json.loads(raw.decode("utf-8", errors="replace"))
+    except ValueError:
+        return None
+    if not isinstance(data, dict) or data.get("type") != "custom-title":
+        return None
+    return " ".join(str(data.get("customTitle", "")).split()) or None
+
+
+def extract_custom_title(file_path: str, max_chars: int | None = 100) -> str | None:
+    """Return the session's custom title (set via /rename or set-session-title.sh).
+
+    Custom titles are appended as {"type":"custom-title","customTitle":...}
+    lines; the most recent one is the live title, so the last match wins.
+    The file is memory-mapped and scanned backwards with one C-level rfind
+    per candidate line, so the cost is a byte scan rather than decoding and
+    parsing every line of a transcript that may be tens of MB. A needle hit
+    inside message content parses as a non-title record and the scan simply
+    continues backwards. Whitespace is collapsed and the result truncated to
+    max_chars (None = untruncated, for matching). Returns None when the
+    session has no custom title. Never raises.
+    """
+    try:
+        with open(file_path, "rb") as fh:
+            if os.fstat(fh.fileno()).st_size == 0:
+                return None
+            with mmap.mmap(fh.fileno(), 0, access=mmap.ACCESS_READ) as mm:
+                end = len(mm)
+                while True:
+                    pos = mm.rfind(_CUSTOM_TITLE_NEEDLE, 0, end)
+                    if pos < 0:
+                        return None
+                    start = mm.rfind(b"\n", 0, pos) + 1
+                    stop = mm.find(b"\n", pos)
+                    if stop < 0:
+                        stop = len(mm)
+                    title = _parse_custom_title_line(mm[start:stop])
+                    if title:
+                        return truncate_title(title, max_chars)
+                    end = start
+    except (OSError, ValueError):
+        return None

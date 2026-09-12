@@ -2,6 +2,12 @@
 import datetime
 import json
 
+from search_chat.database import MISSING_GRACE_SECONDS
+
+
+def _prune_date(missing_since: float) -> str:
+    return datetime.date.fromtimestamp(missing_since + MISSING_GRACE_SECONDS).isoformat()
+
 
 def format_search_results_text(results: list[dict]) -> str:
     if not results:
@@ -14,7 +20,11 @@ def format_search_results_text(results: list[dict]) -> str:
         ts = r.get('latest_timestamp', '')
         lines.append(f'{i}. [{short}] - {count} matches - {ts}')
         lines.append(f'   Full ID: {sid}')
-        lines.append(f'   Resume: claude --resume {sid}')
+        if r.get('missing_since') is not None:
+            lines.append(f'   Transcript deleted - extractable from the index '
+                         f'until {_prune_date(r["missing_since"])}, not resumable')
+        else:
+            lines.append(f'   Resume: claude --resume {sid}')
         lines.append('')
     lines.append('Tip: Use --extract <id> to extract a specific session')
     lines.append('Tip: Use --extract-matches to auto-extract search results')
@@ -24,12 +34,16 @@ def format_search_results_text(results: list[dict]) -> str:
 def format_search_results_json(results: list[dict]) -> str:
     clean = []
     for r in results:
-        clean.append({
+        item = {
             'session_id': r['session_id'],
             'match_count': r['match_count'],
             'snippet': r.get('snippet', ''),
             'timestamp': r.get('latest_timestamp', ''),
-        })
+        }
+        if r.get('missing_since') is not None:
+            item['transcript_missing'] = True
+            item['index_retained_until'] = _prune_date(r['missing_since'])
+        clean.append(item)
     return json.dumps(clean, indent=2, ensure_ascii=False)
 
 

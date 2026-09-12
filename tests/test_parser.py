@@ -239,3 +239,66 @@ class TestExtractSessionTitle:
     def test_missing_file_does_not_raise(self):
         from search_chat.parser import extract_session_title
         assert extract_session_title("/nonexistent/x.jsonl") == "(no user prompt)"
+
+
+class TestExtractCustomTitle:
+    def test_last_custom_title_wins(self, tmp_path):
+        import json
+        from search_chat.parser import extract_custom_title
+        lines = [
+            json.dumps({"type": "user", "uuid": "u1", "timestamp": "T",
+                        "message": {"role": "user", "content": "opening prompt"}}),
+            json.dumps({"type": "custom-title", "customTitle": "old title", "sessionId": "s"}),
+            json.dumps({"type": "custom-title", "customTitle": "SWISS-2665: cart discounts", "sessionId": "s"}),
+        ]
+        f = tmp_path / "titled.jsonl"
+        f.write_text("\n".join(lines) + "\n")
+        assert extract_custom_title(str(f)) == "SWISS-2665: cart discounts"
+
+    def test_none_without_custom_title(self, sample_session_path):
+        from search_chat.parser import extract_custom_title
+        assert extract_custom_title(sample_session_path) is None
+
+    def test_truncates_and_collapses_whitespace(self, tmp_path):
+        import json
+        from search_chat.parser import extract_custom_title
+        f = tmp_path / "long.jsonl"
+        f.write_text(json.dumps({"type": "custom-title", "customTitle": "a  b\n" + "x" * 200}) + "\n")
+        title = extract_custom_title(str(f), max_chars=20)
+        assert title.startswith("a b x") and len(title) == 20 and title.endswith("...")
+
+    def test_missing_file_does_not_raise(self):
+        from search_chat.parser import extract_custom_title
+        assert extract_custom_title("/nonexistent/x.jsonl") is None
+
+    def test_empty_file_returns_none(self, tmp_path):
+        from search_chat.parser import extract_custom_title
+        f = tmp_path / "empty.jsonl"
+        f.write_text("")
+        assert extract_custom_title(str(f)) is None
+
+    def test_needle_inside_message_content_is_skipped(self, tmp_path):
+        # The backwards scan hits the LAST occurrence of the needle first; when
+        # that is a message discussing the format (not a title record) it must
+        # keep scanning back to the real title rather than give up.
+        import json
+        from search_chat.parser import extract_custom_title
+        lines = [
+            json.dumps({"type": "custom-title", "customTitle": "real title", "sessionId": "s"}),
+            json.dumps({"type": "assistant", "uuid": "a1", "timestamp": "T",
+                        "message": {"role": "assistant", "content":
+                                    'the line looks like {"type":"custom-title","customTitle":"x"}'}}),
+            json.dumps({"type": "custom-title", "customTitle": "", "sessionId": "s"}),
+        ]
+        f = tmp_path / "mention.jsonl"
+        f.write_text("\n".join(lines))  # no trailing newline on purpose
+        assert extract_custom_title(str(f)) == "real title"
+
+    def test_max_chars_none_returns_full_title(self, tmp_path):
+        import json
+        from search_chat.parser import extract_custom_title
+        long_title = "x" * 300
+        f = tmp_path / "long.jsonl"
+        f.write_text(json.dumps({"type": "custom-title", "customTitle": long_title}) + "\n")
+        assert extract_custom_title(str(f), max_chars=None) == long_title
+        assert len(extract_custom_title(str(f))) == 100
