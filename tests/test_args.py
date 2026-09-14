@@ -184,3 +184,32 @@ class TestParseArgs:
         assert args.query == 'deploy to staging'
         assert '\n' not in args.query
         assert '\t' not in args.query
+
+    def test_bare_separator_discards_trailing_prose_short_uuid(self):
+        # User types: `search-chat c80ee9c2 -- tail 200` — the `--` separates
+        # the session ID from natural-language follow-up.  The trailing words
+        # must NOT become a filter.
+        args = parse_args(['c80ee9c2', '--', 'tail', '200'])
+        assert args.extract_session == 'c80ee9c2'
+        assert args.query == ''
+        assert args.tail_lines == 200
+
+    def test_bare_separator_discards_trailing_prose_single_string(self):
+        # When $ARGUMENTS arrives as one argv element the whitespace collapse
+        # produces a single string; the remaining-words loop must also drop
+        # everything after `--`.
+        args = parse_args(['c80ee9c2 -- tail 200'])
+        assert args.extract_session == 'c80ee9c2'
+        assert args.query == ''
+        assert args.tail_lines == 200
+
+    def test_bare_separator_discards_trailing_prose_full_uuid(self):
+        args = parse_args(['a1b2c3d4-1234-5678-abcd-ef0123456789', '--', 'summarize'])
+        assert args.extract_session == 'a1b2c3d4-1234-5678-abcd-ef0123456789'
+        assert args.query == ''
+
+    def test_bare_separator_no_id_emptys_query(self):
+        # Standalone `--` with no preceding ID: breaks early, empty query.
+        args = parse_args(['--', 'redis', 'cache'])
+        assert args.extract_session == ''
+        assert args.query == ''

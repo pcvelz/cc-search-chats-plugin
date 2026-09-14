@@ -103,6 +103,11 @@ def parse_args(argv: list[str] | None = None) -> Args:
             args.read_result_file = argv[i + 2]; i += 3
         elif arg == '--list-results' and i + 1 < len(argv):
             args.list_results_session = argv[i + 1]; i += 2
+        elif arg == '--':
+            # Bare `--` is a separator between the session ID and natural-language
+            # follow-up (e.g. "c80ee9c2 -- tail 200"). Discard everything after —
+            # it is prose, not search terms or flags.
+            break
         elif arg.startswith('--'):
             print(f"Warning: Unknown option '{arg}' (ignored)", file=sys.stderr)
             i += 1
@@ -171,6 +176,12 @@ def parse_args(argv: list[str] | None = None) -> Args:
                     args.limit = int(remaining[j + 1]); j += 2
                 elif w == '--exclude-session' and j + 1 < len(remaining):
                     args.exclude_session = remaining[j + 1]; j += 2
+                elif w == '--':
+                    # User typed `session-id -- follow-up instructions`.
+                    # Everything after the bare `--` is natural-language prose,
+                    # not search terms — discard it so the extraction runs
+                    # without a filter (full session output).
+                    break
                 else:
                     new_query_parts.append(w); j += 1
             args.query = ' '.join(new_query_parts)
