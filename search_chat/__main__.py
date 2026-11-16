@@ -26,6 +26,11 @@ from search_chat.types import SessionFile
 
 
 def main():
+    # /summarize-chat mode classifier: stdin in, JSON out, no index access.
+    if sys.argv[1:2] == ['--classify-summarize']:
+        from search_chat.summarize_args import main as classify_main
+        classify_main()
+        return
     args = parse_args()
     project_path = args.project_path or os.getcwd()
     project_dir = get_project_dir(project_path)

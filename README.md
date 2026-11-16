@@ -89,6 +89,8 @@ When you want a digest rather than the full transcript:
 
 > "/search-chats:summarize-chat 38c00401 --eu" — Scaleway Devstral (GDPR-safe hedge)
 
+> "/search-chats:summarize-chat 38c00401 what did it plan next?" - ANY extra text next to the ID: no summary in the chat. The session is loaded as private context and the agent answers or acts on your text instead. Only a bare ID (plus flags) shows the summary.
+
 The command extracts the last ~2000 lines of the session to a tmp file and dispatches a summarizer subagent — the transcript never lands in your main context, so you can summarize arbitrarily long sessions cheaply. Model choice backed by an empirical 19-fact-recall benchmark.
 
 ### Extracting Specific Content
@@ -141,6 +143,7 @@ The plugin figures out what you mean from context:
 | `--include-self` | Include current session in results (excluded by default) | off |
 | `--exclude-session ID` | Exclude a specific session by ID | - |
 | `--json` | Output results as structured JSON | off |
+| `--classify-summarize` | Read `/summarize-chat` arguments on stdin, print JSON `show`/`silent` mode + session IDs + flag | - |
 
 ### New in v2.0.1
 
@@ -190,6 +193,13 @@ Chat sessions are stored in `~/.claude/projects/` as JSONL files. This plugin:
 4. Index updates incrementally when session files change
 
 ## Release Notes
+
+### [v2.0.13](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v2.0.13) - `/summarize-chat` binary output contract
+
+- **Fix:** `/summarize-chat` with ANY extra text next to the session ID (a question, an instruction, "dispatch both in parallel?") no longer dumps the summary into the chat. The summary becomes private context and the agent acts on your text instead. A bare ID plus flags still shows the summary.
+- **New:** `search-chat.sh --classify-summarize` reads the command arguments on stdin and decides the mode (`show` / `silent`), every session ID and the flag deterministically - the agent no longer judges whether extra text "counts".
+- **New:** several session IDs in one `/summarize-chat` call are dispatched in parallel, one subagent each.
+- **Fix:** trailing prose after a bare `--` separator is discarded instead of being used as a search filter.
 
 ### [v2.0.12](https://github.com/pcvelz/cc-search-chats-plugin/releases/tag/v2.0.12) - Faster, wider search and renamed-session titles
 

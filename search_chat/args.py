@@ -238,6 +238,7 @@ def _print_help():
 
 Search through Claude Code chat history and extract conversations.
 If a UUID is passed as query, it auto-extracts that session.
+(--classify-summarize is handled before this parser; see search_chat/summarize_args.py.)
 
 Search Options:
   --limit N          Maximum sessions to return (default: 10)
@@ -248,6 +249,8 @@ Search Options:
   --include-self     Include current session in results
   --exclude-session ID  Exclude a specific session from results
   --json             Output results as JSON
+  --classify-summarize  Read /summarize-chat args on stdin, print JSON mode
+                        (show = bare ids+flags, silent = any extra text)
 
 Extraction Options:
   --extract ID       Extract conversation from specific session ID
